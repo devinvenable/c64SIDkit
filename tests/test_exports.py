@@ -5,7 +5,10 @@ import wave
 from pathlib import Path
 
 from sid_sfx.schema import SfxPatch, Waveform
-from sid_sfx.asm_export import patch_to_bytes, patches_to_asm, patch_to_asm_line, patches_to_c_array
+from sid_sfx.asm_export import (
+    patch_to_bytes, patches_to_asm, patch_to_asm_line, patches_to_c_array,
+    patches_to_asm_tables, patch_to_sweep_bytes, EXP_CURVE_LUT, BLASTER_WEIGHTS,
+)
 from sid_sfx.wav_export import render_patch_to_wav
 from sid_sfx.presets import PRESETS
 
@@ -81,3 +84,114 @@ def test_preset_fire_matches_game():
 def test_preset_explode_matches_game():
     p = PRESETS["explode"]
     assert p.to_bytes() == bytes([0x02, 0x81, 0x08, 0x00, 0x09, 0x09, 0x00])
+
+
+# --- Separate-table format tests ---
+
+def test_sweep_bytes_no_sweep():
+    """Non-swept patch produces zeroed sweep bytes."""
+    p = PRESETS["fire"]
+    assert not p.has_sweep
+    assert patch_to_sweep_bytes(p) == bytes(4)
+
+
+def test_sweep_bytes_with_sweep():
+    """Swept patch produces correct 4-byte sweep entry."""
+    p = PRESETS["blaster_bolt"]
+    b = patch_to_sweep_bytes(p)
+    assert len(b) == 4
+    assert b[0] == 0x03  # target_hi
+    assert b[1] == 0x00  # target_lo
+    assert b[2] == p.duration_frames  # frames (sweep_frames=0 falls back to duration_frames)
+    assert b[3] == 0x03  # flags: enable(1) | exponential(2)
+
+
+def test_sweep_bytes_linear():
+    """Linear sweep sets only enable bit."""
+    p = SfxPatch(
+        name="test_linear", voice=1, waveform=Waveform.SAWTOOTH,
+        freq_hi=0x20, freq_lo=0x00, attack=0, decay=4, sustain=0, release=0,
+        sweep_target_hi=0x10, sweep_target_lo=0x00, sweep_type="linear",
+        sweep_frames=12,
+    )
+    b = patch_to_sweep_bytes(p)
+    assert b[3] == 0x01  # enable only, no exponential bit
+    assert b[2] == 12  # uses explicit sweep_frames
+
+
+def test_patches_to_asm_tables_has_both_tables():
+    """Separate-table export produces sfx_data and sfx_sweep labels."""
+    patches = [PRESETS["fire"], PRESETS["blaster_bolt"]]
+    asm = patches_to_asm_tables(patches)
+    assert "sfx_data:" in asm
+    assert "sfx_sweep:" in asm
+    assert "SFX_FIRE = 0" in asm
+    assert "SFX_BLASTER_BOLT = 1" in asm
+
+
+def test_patches_to_asm_tables_includes_curve_lut():
+    """Separate-table export includes exponential curve LUT."""
+    asm = patches_to_asm_tables([PRESETS["fire"]])
+    assert "exp_curve_lut:" in asm
+
+
+def test_patches_to_asm_tables_includes_blaster_weights():
+    """Separate-table export includes blaster weight table."""
+    asm = patches_to_asm_tables([PRESETS["fire"]])
+    assert "blaster_weights:" in asm
+
+
+def test_patches_to_asm_tables_optional_sections():
+    """Can disable curve LUT and blaster weights."""
+    asm = patches_to_asm_tables(
+        [PRESETS["fire"]],
+        include_curve_lut=False,
+        include_blaster_weights=False,
+    )
+    assert "exp_curve_lut:" not in asm
+    assert "blaster_weights:" not in asm
+
+
+def test_exp_curve_lut_properties():
+    """Exponential curve LUT is 16 bytes, monotonically increasing, 0-255."""
+    assert len(EXP_CURVE_LUT) == 16
+    assert EXP_CURVE_LUT[0] == 0
+    assert EXP_CURVE_LUT[-1] == 255
+    for i in range(1, 16):
+        assert EXP_CURVE_LUT[i] > EXP_CURVE_LUT[i - 1]
+
+
+def test_blaster_weights_distribution():
+    """Blaster weight table has correct distribution."""
+    assert len(BLASTER_WEIGHTS) == 8
+    assert BLASTER_WEIGHTS.count(0) == 3  # xwing 3/8
+    assert BLASTER_WEIGHTS.count(1) == 2  # heavy_repeater 2/8
+    assert BLASTER_WEIGHTS.count(2) == 1  # turbolaser 1/8
+    assert BLASTER_WEIGHTS.count(3) == 1  # tie_cannon 1/8
+    assert BLASTER_WEIGHTS.count(4) == 1  # ion_cannon 1/8
+
+
+def test_backward_compat_flat_export():
+    """Original flat export still works unchanged."""
+    patches = list(PRESETS.values())
+    asm = patches_to_asm(patches)
+    assert "sfx_data:" in asm
+    assert "sfx_sweep:" not in asm  # flat format has no sweep table
+    for p in patches:
+        assert p.name in asm
+
+
+def test_round_trip_sweep():
+    """Exported sweep bytes can be parsed back to match original params."""
+    for name, p in PRESETS.items():
+        b = patch_to_sweep_bytes(p)
+        if p.has_sweep:
+            assert b[0] == p.sweep_target_hi
+            assert b[1] == p.sweep_target_lo
+            expected_frames = p.sweep_frames if p.sweep_frames > 0 else p.duration_frames
+            assert b[2] == expected_frames
+            assert b[3] & 0x01 == 1  # enable bit
+            is_exp = (b[3] & 0x02) >> 1
+            assert (is_exp == 1) == (p.sweep_type == "exponential")
+        else:
+            assert b == bytes(4)

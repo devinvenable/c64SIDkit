@@ -58,6 +58,7 @@ class SfxPatch:
     # If sweep_target is 0 or None, no sweep is applied (backward compatible).
     sweep_target_hi: int = 0
     sweep_target_lo: int = 0
+    sweep_frames: int = 0  # Number of frames for the sweep (0 = use duration_frames)
     sweep_type: str = "exponential"  # "linear" or "exponential"
 
     # Optional description for documentation

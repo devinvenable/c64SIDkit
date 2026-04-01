@@ -9,7 +9,7 @@ from pathlib import Path
 
 from sid_sfx.schema import SfxPatch, Waveform, hz_to_sid_freq, sid_freq_to_hz
 from sid_sfx.wav_export import render_patch_to_wav
-from sid_sfx.asm_export import patches_to_asm, save_asm
+from sid_sfx.asm_export import patches_to_asm, patches_to_asm_tables, save_asm, save_asm_tables
 
 
 def cmd_preview(args):
@@ -27,11 +27,18 @@ def cmd_export(args):
     for path in args.inputs:
         patches.append(SfxPatch.load_json(path))
 
-    if args.output:
-        save_asm(patches, args.output, label=args.label)
-        print(f"Exported {len(patches)} SFX -> {args.output}")
+    if args.format == "tables":
+        if args.output:
+            save_asm_tables(patches, args.output)
+            print(f"Exported {len(patches)} SFX (separate tables) -> {args.output}")
+        else:
+            print(patches_to_asm_tables(patches))
     else:
-        print(patches_to_asm(patches, label=args.label))
+        if args.output:
+            save_asm(patches, args.output, label=args.label)
+            print(f"Exported {len(patches)} SFX -> {args.output}")
+        else:
+            print(patches_to_asm(patches, label=args.label))
 
 
 def cmd_info(args):
@@ -81,6 +88,8 @@ def main():
     p_export.add_argument("inputs", nargs="+", help="Patch JSON files")
     p_export.add_argument("-o", "--output", help="Output .asm path")
     p_export.add_argument("-l", "--label", default="sfx_data", help="Table label")
+    p_export.add_argument("-f", "--format", choices=["flat", "tables"], default="flat",
+                          help="Export format: 'flat' (single table) or 'tables' (separate sfx_data + sfx_sweep)")
     p_export.set_defaults(func=cmd_export)
 
     p_info = sub.add_parser("info", help="Show patch details")
