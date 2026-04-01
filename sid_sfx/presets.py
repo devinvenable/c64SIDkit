@@ -121,4 +121,60 @@ PRESETS = {
         sweep_type="exponential",
         description="Descending sawtooth sweep — blaster bolt 'pew'",
     ),
+    # --- Blaster variations (weighted random cycling in engine) ---
+    # Weight 3/8: most common shot
+    "xwing_blaster": SfxPatch(
+        name="xwing_blaster",
+        voice=1, waveform=Waveform.SAWTOOTH,
+        freq_hi=0xFF, freq_lo=0xFF,
+        attack=0, decay=4, sustain=0, release=3,
+        pw_hi=0x00, duration_frames=6,
+        sweep_target_hi=0x13, sweep_target_lo=0xF5,
+        sweep_type="exponential",
+        description="Quick bright blaster pew — X-wing style (weight 3/8)",
+    ),
+    # Weight 2/8: frequent mid-range punch
+    "heavy_repeater": SfxPatch(
+        name="heavy_repeater",
+        voice=1, waveform=Waveform.SAWTOOTH,
+        freq_hi=0xA6, freq_lo=0x4B,
+        attack=0, decay=5, sustain=0, release=4,
+        pw_hi=0x00, duration_frames=10,
+        sweep_target_hi=0x09, sweep_target_lo=0xFA,
+        sweep_type="exponential",
+        description="Mid-range sawtooth sweep — heavy repeater (weight 2/8)",
+    ),
+    # Weight 1/8: occasional heavy hit
+    "turbolaser": SfxPatch(
+        name="turbolaser",
+        voice=1, waveform=Waveform.SAWTOOTH,
+        freq_hi=0x85, freq_lo=0x09,
+        attack=0, decay=7, sustain=0, release=6,
+        pw_hi=0x00, duration_frames=18,
+        sweep_target_hi=0x05, sweep_target_lo=0x52,
+        sweep_type="exponential",
+        description="Heavy sawtooth sweep — turbolaser blast (weight 1/8)",
+    ),
+    # Weight 1/8: occasional sharp crack
+    "tie_cannon": SfxPatch(
+        name="tie_cannon",
+        voice=1, waveform=Waveform.PULSE,
+        freq_hi=0xFF, freq_lo=0xFF,
+        attack=0, decay=3, sustain=0, release=2,
+        pw_hi=0x26, duration_frames=5,
+        sweep_target_hi=0x35, sweep_target_lo=0x37,
+        sweep_type="exponential",
+        description="Thin high pulse sweep — TIE cannon crack (weight 1/8)",
+    ),
+    # Weight 1/8: rare deep boom
+    "ion_cannon": SfxPatch(
+        name="ion_cannon",
+        voice=1, waveform=Waveform.PULSE,
+        freq_hi=0x63, freq_lo=0xC7,
+        attack=0, decay=8, sustain=0, release=7,
+        pw_hi=0x14, duration_frames=20,
+        sweep_target_hi=0x03, sweep_target_lo=0xFE,
+        sweep_type="exponential",
+        description="Deep narrow-pulse sweep — ion cannon boom (weight 1/8)",
+    ),
 }
