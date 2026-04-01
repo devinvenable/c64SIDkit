@@ -1,0 +1,14 @@
+{
+  "name": "explosion",
+  "voice": 2,
+  "waveform": "NOISE",
+  "freq_hi": 8,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 9,
+  "sustain": 0,
+  "release": 9,
+  "pw_hi": 0,
+  "duration_frames": 15,
+  "description": "Noise burst explosion — classic SID boom"
+}

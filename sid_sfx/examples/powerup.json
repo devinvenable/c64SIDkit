@@ -1,0 +1,14 @@
+{
+  "name": "powerup",
+  "voice": 3,
+  "waveform": "TRIANGLE",
+  "freq_hi": 28,
+  "freq_lo": 214,
+  "attack": 0,
+  "decay": 8,
+  "sustain": 10,
+  "release": 0,
+  "pw_hi": 0,
+  "duration_frames": 15,
+  "description": "Rising triangle tone — powerup collect"
+}

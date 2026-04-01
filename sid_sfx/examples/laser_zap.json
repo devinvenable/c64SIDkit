@@ -1,0 +1,14 @@
+{
+  "name": "laser_zap",
+  "voice": 1,
+  "waveform": "SAWTOOTH",
+  "freq_hi": 24,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 6,
+  "sustain": 0,
+  "release": 6,
+  "pw_hi": 0,
+  "duration_frames": 10,
+  "description": "Classic C64 laser zap — sawtooth with fast decay"
+}
