@@ -101,3 +101,70 @@ def test_validation():
         SfxPatch(name="bad", attack=16)
     with pytest.raises(ValueError):
         SfxPatch(name="bad", freq_hi=256)
+
+
+def test_sweep_defaults_no_sweep():
+    """Patch without sweep fields should have no sweep."""
+    p = SfxPatch(name="test")
+    assert not p.has_sweep
+    assert p.sweep_target == 0
+
+
+def test_sweep_target_property():
+    p = SfxPatch(name="t", sweep_target_hi=0x03, sweep_target_lo=0x00)
+    assert p.sweep_target == 0x0300
+    assert p.has_sweep
+    p.sweep_target = 0x2800
+    assert p.sweep_target_hi == 0x28
+    assert p.sweep_target_lo == 0x00
+
+
+def test_sweep_to_bytes_unchanged():
+    """Sweep fields must NOT change the 7-byte hardware export."""
+    p = SfxPatch(
+        name="sweep_test", voice=1, waveform=Waveform.SAWTOOTH,
+        freq_hi=0x28, freq_lo=0x00,
+        attack=0, decay=6, sustain=0, release=4,
+        pw_hi=0x00,
+        sweep_target_hi=0x03, sweep_target_lo=0x00,
+        sweep_type="exponential",
+    )
+    b = p.to_bytes()
+    assert len(b) == 7
+    # Same as without sweep
+    p_no_sweep = SfxPatch(
+        name="no_sweep", voice=1, waveform=Waveform.SAWTOOTH,
+        freq_hi=0x28, freq_lo=0x00,
+        attack=0, decay=6, sustain=0, release=4,
+        pw_hi=0x00,
+    )
+    assert b == p_no_sweep.to_bytes()
+
+
+def test_sweep_roundtrip_json():
+    """Sweep fields should survive save_json/load_json round-trip."""
+    p = SfxPatch(
+        name="bolt", voice=1, waveform=Waveform.SAWTOOTH,
+        freq_hi=0x28, freq_lo=0x00,
+        attack=0, decay=6, sustain=0, release=4,
+        pw_hi=0x00,
+        sweep_target_hi=0x03, sweep_target_lo=0x00,
+        sweep_type="exponential",
+    )
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+        path = f.name
+    p.save_json(path)
+    loaded = SfxPatch.load_json(path)
+    assert loaded.sweep_target_hi == 0x03
+    assert loaded.sweep_target_lo == 0x00
+    assert loaded.sweep_type == "exponential"
+    assert loaded.has_sweep
+    Path(path).unlink()
+
+
+def test_sweep_validation():
+    import pytest
+    with pytest.raises(ValueError):
+        SfxPatch(name="bad", sweep_target_hi=256)
+    with pytest.raises(ValueError):
+        SfxPatch(name="bad", sweep_type="cubic")

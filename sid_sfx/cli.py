@@ -47,6 +47,9 @@ def cmd_info(args):
     print(f"Sustain:    {patch.sustain}  Release: {patch.release}")
     print(f"PW High:    ${patch.pw_hi:02X}")
     print(f"Duration:   {patch.duration_frames} frames")
+    if patch.has_sweep:
+        sweep_hz = sid_freq_to_hz(patch.sweep_target)
+        print(f"Sweep:      ${patch.sweep_target_hi:02X}{patch.sweep_target_lo:02X} ({sweep_hz:.1f} Hz), {patch.sweep_type}")
     print(f"7-byte:     {' '.join(f'${v:02X}' for v in b)}")
     if patch.description:
         print(f"Desc:       {patch.description}")

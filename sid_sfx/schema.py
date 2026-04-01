@@ -54,6 +54,12 @@ class SfxPatch:
     # Duration in frames for suppression timer (informational for export)
     duration_frames: int = 10
 
+    # Pitch sweep (software-only — not part of the 7-byte hardware export).
+    # If sweep_target is 0 or None, no sweep is applied (backward compatible).
+    sweep_target_hi: int = 0
+    sweep_target_lo: int = 0
+    sweep_type: str = "exponential"  # "linear" or "exponential"
+
     # Optional description for documentation
     description: str = ""
 
@@ -66,6 +72,8 @@ class SfxPatch:
             ("freq_hi", self.freq_hi, 0xFF),
             ("freq_lo", self.freq_lo, 0xFF),
             ("pw_hi", self.pw_hi, 0xFF),
+            ("sweep_target_hi", self.sweep_target_hi, 0xFF),
+            ("sweep_target_lo", self.sweep_target_lo, 0xFF),
         ]:
             if not 0 <= val <= hi:
                 raise ValueError(f"{name} must be 0-{hi}, got {val}")
@@ -77,6 +85,8 @@ class SfxPatch:
         ]:
             if not 0 <= val <= 15:
                 raise ValueError(f"{name} must be 0-15, got {val}")
+        if self.sweep_type not in ("linear", "exponential"):
+            raise ValueError(f"sweep_type must be 'linear' or 'exponential', got {self.sweep_type!r}")
 
     @property
     def cr_byte(self) -> int:
@@ -103,8 +113,27 @@ class SfxPatch:
         self.freq_hi = (val >> 8) & 0xFF
         self.freq_lo = val & 0xFF
 
+    @property
+    def sweep_target(self) -> int:
+        """16-bit SID frequency sweep target (0 = no sweep)."""
+        return (self.sweep_target_hi << 8) | self.sweep_target_lo
+
+    @sweep_target.setter
+    def sweep_target(self, val: int):
+        self.sweep_target_hi = (val >> 8) & 0xFF
+        self.sweep_target_lo = val & 0xFF
+
+    @property
+    def has_sweep(self) -> bool:
+        return self.sweep_target > 0
+
     def to_bytes(self) -> bytes:
-        """Encode as 7-byte SFX data (matches game engine format)."""
+        """Encode as 7-byte SFX data (matches game engine format).
+
+        Note: sweep params are preview-only (software concept) and not
+        included in the hardware export. The C64 engine handles sweeps
+        via its own per-frame frequency update loop.
+        """
         return bytes([
             self.voice,
             self.cr_byte,

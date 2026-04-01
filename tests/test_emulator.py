@@ -72,3 +72,68 @@ def test_zero_frequency():
         duration_ms=100.0,
     )
     assert len(samples) > 0
+
+
+def test_sweep_renders():
+    """Sweep should produce valid output."""
+    emu = SidVoiceEmulator()
+    samples = emu.render(
+        waveform=Waveform.SAWTOOTH,
+        frequency=0x2800,
+        attack=0, decay=6, sustain=0, release=4,
+        duration_ms=200.0,
+        sweep_target=0x0300,
+        sweep_type="exponential",
+    )
+    assert len(samples) > 0
+    assert samples.dtype == np.float32
+
+
+def test_sweep_bounded():
+    """Swept output should be in [-1, 1]."""
+    emu = SidVoiceEmulator()
+    for wf in [Waveform.SAWTOOTH, Waveform.TRIANGLE, Waveform.PULSE]:
+        samples = emu.render(
+            waveform=wf,
+            frequency=0x2800,
+            attack=0, decay=4, sustain=8, release=4,
+            pw_hi=0x08,
+            duration_ms=200.0,
+            sweep_target=0x0300,
+            sweep_type="exponential",
+        )
+        assert np.all(samples >= -1.01)
+        assert np.all(samples <= 1.01)
+
+
+def test_linear_sweep():
+    """Linear sweep should also work."""
+    emu = SidVoiceEmulator()
+    samples = emu.render(
+        waveform=Waveform.TRIANGLE,
+        frequency=0x2000,
+        attack=0, decay=6, sustain=0, release=0,
+        duration_ms=200.0,
+        sweep_target=0x0400,
+        sweep_type="linear",
+    )
+    assert len(samples) > 0
+
+
+def test_no_sweep_backward_compat():
+    """sweep_target=0 should produce same result as no sweep."""
+    emu = SidVoiceEmulator()
+    s1 = emu.render(
+        waveform=Waveform.SAWTOOTH,
+        frequency=0x1800,
+        attack=0, decay=6, sustain=0, release=6,
+        duration_ms=200.0,
+    )
+    s2 = emu.render(
+        waveform=Waveform.SAWTOOTH,
+        frequency=0x1800,
+        attack=0, decay=6, sustain=0, release=6,
+        duration_ms=200.0,
+        sweep_target=0,
+    )
+    np.testing.assert_array_equal(s1, s2)

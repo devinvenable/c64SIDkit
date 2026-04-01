@@ -30,6 +30,8 @@ class SidVoiceEmulator:
         pw_hi: int = 0x08,
         duration_ms: float = 500.0,
         gate_off_ms: float | None = None,
+        sweep_target: int = 0,
+        sweep_type: str = "exponential",
     ) -> np.ndarray:
         """Render a gated SID voice to float32 samples [-1, 1].
 
@@ -40,6 +42,8 @@ class SidVoiceEmulator:
             pw_hi: Pulse width high byte (0-255). Duty = pw_hi/256.
             duration_ms: Total render duration.
             gate_off_ms: When to release gate. If None, uses attack+decay time.
+            sweep_target: End frequency (16-bit SID register). 0 = no sweep.
+            sweep_type: "linear" or "exponential".
         """
         sr = self.sample_rate
         n_samples = int(sr * duration_ms / 1000.0)
@@ -49,8 +53,16 @@ class SidVoiceEmulator:
         if freq_hz < 1.0:
             freq_hz = 1.0
 
-        # Generate waveform
-        wave = self._generate_waveform(waveform, freq_hz, n_samples, pw_hi)
+        if sweep_target > 0:
+            end_hz = sweep_target * self.clock / (1 << 24)
+            if end_hz < 1.0:
+                end_hz = 1.0
+            wave = self._generate_swept_waveform(
+                waveform, freq_hz, end_hz, n_samples, pw_hi, sweep_type,
+            )
+        else:
+            # Generate waveform
+            wave = self._generate_waveform(waveform, freq_hz, n_samples, pw_hi)
 
         # Generate envelope
         envelope = self._generate_envelope(
@@ -59,6 +71,58 @@ class SidVoiceEmulator:
         )
 
         return (wave * envelope).astype(np.float32)
+
+    def _generate_swept_waveform(
+        self,
+        waveform: Waveform,
+        start_hz: float,
+        end_hz: float,
+        n_samples: int,
+        pw_hi: int,
+        sweep_type: str,
+    ) -> np.ndarray:
+        """Generate waveform with frequency sweep using a phase accumulator."""
+        t = np.arange(n_samples, dtype=np.float64) / self.sample_rate
+        frac = t * self.sample_rate / max(1, n_samples)  # 0→1 over duration
+
+        if sweep_type == "exponential" and start_hz > 0 and end_hz > 0:
+            # Exponential interpolation: f(t) = start * (end/start)^frac
+            freq_curve = start_hz * np.power(end_hz / start_hz, frac)
+        else:
+            freq_curve = start_hz + (end_hz - start_hz) * frac
+
+        # Phase accumulator: integrate instantaneous frequency
+        phase_increment = freq_curve / self.sample_rate
+        phase = np.cumsum(phase_increment) % 1.0
+
+        return self._waveform_from_phase(waveform, phase, pw_hi)
+
+    def _waveform_from_phase(
+        self, waveform: Waveform, phase: np.ndarray, pw_hi: int
+    ) -> np.ndarray:
+        """Convert a phase array [0,1) to waveform samples."""
+        if waveform == Waveform.TRIANGLE:
+            return 2.0 * np.abs(2.0 * phase - 1.0) - 1.0
+        elif waveform == Waveform.SAWTOOTH:
+            return 2.0 * phase - 1.0
+        elif waveform == Waveform.PULSE:
+            duty = pw_hi / 256.0
+            if duty < 0.001:
+                duty = 0.5
+            return np.where(phase < duty, 1.0, -1.0).astype(np.float64)
+        elif waveform == Waveform.NOISE:
+            # For swept noise, use sample-and-hold with average freq
+            avg_freq = np.mean(phase)  # rough approximation
+            n_samples = len(phase)
+            samples_per_cycle = max(1, int(1.0 / max(0.001, np.mean(np.diff(phase[phase < 0.99])))))
+            noise_len = (n_samples // samples_per_cycle) + 2
+            rng = np.random.default_rng(42)
+            noise_values = rng.uniform(-1.0, 1.0, noise_len)
+            indices = np.arange(n_samples) // samples_per_cycle
+            indices = np.clip(indices, 0, noise_len - 1)
+            return noise_values[indices]
+        else:
+            raise ValueError(f"Unknown waveform: {waveform}")
 
     def _generate_waveform(
         self, waveform: Waveform, freq_hz: float, n_samples: int, pw_hi: int

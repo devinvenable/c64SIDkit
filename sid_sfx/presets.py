@@ -111,4 +111,14 @@ PRESETS = {
         pw_hi=0x00, duration_frames=3,
         description="Ultra-short high sawtooth blip — bounce",
     ),
+    "blaster_bolt": SfxPatch(
+        name="blaster_bolt",
+        voice=1, waveform=Waveform.SAWTOOTH,
+        freq_hi=0x28, freq_lo=0x00,
+        attack=0, decay=6, sustain=0, release=4,
+        pw_hi=0x00, duration_frames=8,
+        sweep_target_hi=0x03, sweep_target_lo=0x00,
+        sweep_type="exponential",
+        description="Descending sawtooth sweep — blaster bolt 'pew'",
+    ),
 }
