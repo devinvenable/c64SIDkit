@@ -32,6 +32,10 @@ class SidVoiceEmulator:
         gate_off_ms: float | None = None,
         sweep_target: int = 0,
         sweep_type: str = "exponential",
+        filter_mode: str = "off",
+        filter_cutoff: int = 0x90,
+        filter_resonance: int = 0xF,
+        filter_cutoff_sweep: int = 0,
     ) -> np.ndarray:
         """Render a gated SID voice to float32 samples [-1, 1].
 
@@ -69,6 +73,13 @@ class SidVoiceEmulator:
             attack, decay, sustain, release,
             n_samples, gate_off_ms, duration_ms,
         )
+
+        # Apply filter if enabled
+        if filter_mode != "off":
+            wave = self._apply_filter(
+                wave, filter_mode, filter_cutoff, filter_resonance,
+                filter_cutoff_sweep, n_samples,
+            )
 
         return (wave * envelope).astype(np.float32)
 
@@ -123,6 +134,66 @@ class SidVoiceEmulator:
             return noise_values[indices]
         else:
             raise ValueError(f"Unknown waveform: {waveform}")
+
+    def _apply_filter(
+        self,
+        samples: np.ndarray,
+        mode: str,
+        cutoff: int,
+        resonance: int,
+        cutoff_sweep: int,
+        n_samples: int,
+    ) -> np.ndarray:
+        """Apply a state-variable filter approximating the SID filter.
+
+        Uses a simple SVF: low-pass, band-pass, or high-pass with resonance.
+        Cutoff is mapped from SID SIDFCHI byte (0-255) to frequency.
+        """
+        # Map SID cutoff byte to frequency (~30Hz to ~12kHz, roughly logarithmic)
+        def cutoff_to_freq(c):
+            return 30.0 * (2.0 ** (c / 255.0 * 8.5))
+
+        start_freq = cutoff_to_freq(cutoff)
+        if cutoff_sweep > 0:
+            end_freq = cutoff_to_freq(cutoff_sweep)
+        else:
+            end_freq = start_freq
+
+        # Resonance: SID nibble 0-15 maps to Q ~0.5 to ~15
+        q = 0.5 + (resonance / 15.0) * 14.5
+
+        # State-variable filter
+        out = np.zeros(n_samples, dtype=np.float64)
+        lp = 0.0  # low-pass state
+        bp = 0.0  # band-pass state
+
+        for i in range(n_samples):
+            # Interpolate cutoff frequency
+            frac = i / max(1, n_samples - 1)
+            if cutoff_sweep > 0:
+                fc = start_freq * ((end_freq / start_freq) ** frac)
+            else:
+                fc = start_freq
+
+            # SVF coefficient
+            f = 2.0 * np.sin(np.pi * min(fc / self.sample_rate, 0.49))
+            q_inv = 1.0 / q
+
+            # SVF update
+            hp = samples[i] - lp - q_inv * bp
+            bp += f * hp
+            lp += f * bp
+
+            if mode == "lowpass":
+                out[i] = lp
+            elif mode == "bandpass":
+                out[i] = bp
+            elif mode == "highpass":
+                out[i] = hp
+            else:
+                out[i] = samples[i]
+
+        return out
 
     def _generate_waveform(
         self, waveform: Waveform, freq_hz: float, n_samples: int, pw_hi: int

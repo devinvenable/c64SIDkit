@@ -44,6 +44,10 @@ def render_patch(patch: SfxPatch, sample_rate: int = 44100) -> np.ndarray:
         gate_off_ms=gate_off_ms,
         sweep_target=patch.sweep_target,
         sweep_type=patch.sweep_type,
+        filter_mode=patch.filter_mode,
+        filter_cutoff=patch.filter_cutoff,
+        filter_resonance=patch.filter_resonance,
+        filter_cutoff_sweep=patch.filter_cutoff_sweep,
     )
 
 

@@ -61,6 +61,12 @@ class SfxPatch:
     sweep_frames: int = 0  # Number of frames for the sweep (0 = use duration_frames)
     sweep_type: str = "exponential"  # "linear" or "exponential"
 
+    # Filter (preview-only — engine handles filter via separate registers)
+    filter_mode: str = "off"  # "off", "lowpass", "bandpass", "highpass"
+    filter_cutoff: int = 0x90  # SID SIDFCHI value (0-255)
+    filter_resonance: int = 0xF  # SID resonance nibble (0-15)
+    filter_cutoff_sweep: int = 0  # Sweep target for cutoff (0 = no sweep)
+
     # Optional description for documentation
     description: str = ""
 
