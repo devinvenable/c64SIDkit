@@ -166,6 +166,16 @@ PRESETS = {
         sweep_type="exponential",
         description="Thin high pulse sweep — TIE cannon crack (weight 1/8)",
     ),
+    # --- Shield effects ---
+    "shield_on_v3": SfxPatch(
+        name="shield_on_v3",
+        voice=3, waveform=Waveform.TRIANGLE,
+        freq_hi=0x27, freq_lo=0xE9,
+        attack=6, decay=8, sustain=10, release=8,
+        pw_hi=0x00, duration_frames=60,
+        vibrato_rate=15.0, vibrato_depth=100,
+        description="600Hz triangle with 15Hz vibrato — Star Trek force field wobble",
+    ),
     # Weight 1/8: rare deep boom
     "ion_cannon": SfxPatch(
         name="ion_cannon",

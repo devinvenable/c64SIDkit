@@ -92,14 +92,14 @@ def test_sweep_bytes_no_sweep():
     """Non-swept patch produces zeroed sweep bytes."""
     p = PRESETS["fire"]
     assert not p.has_sweep
-    assert patch_to_sweep_bytes(p) == bytes(4)
+    assert patch_to_sweep_bytes(p) == bytes(6)
 
 
 def test_sweep_bytes_with_sweep():
-    """Swept patch produces correct 4-byte sweep entry."""
+    """Swept patch produces correct 6-byte sweep entry."""
     p = PRESETS["blaster_bolt"]
     b = patch_to_sweep_bytes(p)
-    assert len(b) == 4
+    assert len(b) == 6
     assert b[0] == 0x03  # target_hi
     assert b[1] == 0x00  # target_lo
     assert b[2] == p.duration_frames  # frames (sweep_frames=0 falls back to duration_frames)
@@ -194,4 +194,29 @@ def test_round_trip_sweep():
             is_exp = (b[3] & 0x02) >> 1
             assert (is_exp == 1) == (p.sweep_type == "exponential")
         else:
-            assert b == bytes(4)
+            if not p.has_vibrato:
+                assert b == bytes(6)
+            else:
+                assert b[0:3] == bytes(3)  # no sweep target/frames
+                assert b[3] & 0x04 == 0x04  # vibrato bit set
+
+
+def test_vibrato_sweep_bytes():
+    """Vibrato-only patch produces correct 6-byte entry with vibrato flag."""
+    p = PRESETS["shield_on_v3"]
+    b = patch_to_sweep_bytes(p)
+    assert len(b) == 6
+    assert b[3] & 0x04 == 0x04  # vibrato enable bit
+    assert b[3] & 0x01 == 0x00  # no sweep enable bit
+    assert b[4] > 0  # vib_rate encoded
+    assert b[5] > 0  # vib_depth encoded
+
+
+def test_vibrato_preset_renders():
+    """shield_on_v3 preset renders without error."""
+    from sid_sfx.wav_export import render_patch
+    import numpy as np
+    p = PRESETS["shield_on_v3"]
+    samples = render_patch(p)
+    assert len(samples) > 0
+    assert samples.dtype == np.float32

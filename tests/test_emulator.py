@@ -137,3 +137,73 @@ def test_no_sweep_backward_compat():
         sweep_target=0,
     )
     np.testing.assert_array_equal(s1, s2)
+
+
+def test_vibrato_renders():
+    """Vibrato should produce valid output."""
+    emu = SidVoiceEmulator()
+    samples = emu.render(
+        waveform=Waveform.TRIANGLE,
+        frequency=0x27E9,
+        attack=6, decay=8, sustain=10, release=8,
+        duration_ms=500.0,
+        vibrato_rate=15.0,
+        vibrato_depth=100,
+    )
+    assert len(samples) > 0
+    assert samples.dtype == np.float32
+
+
+def test_vibrato_bounded():
+    """Vibrato output should be in [-1, 1]."""
+    emu = SidVoiceEmulator()
+    samples = emu.render(
+        waveform=Waveform.TRIANGLE,
+        frequency=0x27E9,
+        attack=6, decay=8, sustain=10, release=8,
+        duration_ms=500.0,
+        vibrato_rate=15.0,
+        vibrato_depth=100,
+    )
+    assert np.all(samples >= -1.01)
+    assert np.all(samples <= 1.01)
+
+
+def test_vibrato_modulates_frequency():
+    """Vibrato should produce different output than no vibrato."""
+    emu = SidVoiceEmulator()
+    s_no_vib = emu.render(
+        waveform=Waveform.TRIANGLE,
+        frequency=0x27E9,
+        attack=0, decay=8, sustain=10, release=8,
+        duration_ms=200.0,
+    )
+    s_vib = emu.render(
+        waveform=Waveform.TRIANGLE,
+        frequency=0x27E9,
+        attack=0, decay=8, sustain=10, release=8,
+        duration_ms=200.0,
+        vibrato_rate=15.0,
+        vibrato_depth=100,
+    )
+    assert not np.array_equal(s_no_vib, s_vib)
+
+
+def test_no_vibrato_backward_compat():
+    """vibrato_rate=0 should produce same result as no vibrato."""
+    emu = SidVoiceEmulator()
+    s1 = emu.render(
+        waveform=Waveform.TRIANGLE,
+        frequency=0x1800,
+        attack=0, decay=6, sustain=0, release=6,
+        duration_ms=200.0,
+    )
+    s2 = emu.render(
+        waveform=Waveform.TRIANGLE,
+        frequency=0x1800,
+        attack=0, decay=6, sustain=0, release=6,
+        duration_ms=200.0,
+        vibrato_rate=0.0,
+        vibrato_depth=0,
+    )
+    np.testing.assert_array_equal(s1, s2)

@@ -6,8 +6,8 @@ used by the C64 game engine (sound_auditor.asm / dankarmada.asm):
     voice(1B), CR(1B), freq_hi(1B), freq_lo(1B), AD(1B), SR(1B), pw_hi(1B)
 
 Separate-table format adds:
-    sfx_sweep[]: 4 bytes per entry (target_hi, target_lo, frames, flags)
-    sweep_flags: bit 0 = enable, bit 1 = curve (0=linear, 1=exponential)
+    sfx_sweep[]: 6 bytes per entry (target_hi, target_lo, frames, flags, vib_rate, vib_depth)
+    sweep_flags: bit 0 = sweep enable, bit 1 = curve (0=linear, 1=exponential), bit 2 = vibrato enable
 """
 
 from __future__ import annotations
@@ -36,22 +36,42 @@ def patch_to_bytes(patch: SfxPatch) -> bytes:
 
 
 def patch_to_sweep_bytes(patch: SfxPatch) -> bytes:
-    """Convert a patch's sweep parameters to 4-byte representation.
+    """Convert a patch's sweep + vibrato parameters to 6-byte representation.
 
-    Format: target_hi, target_lo, frames, flags
-    flags: bit 0 = enable, bit 1 = curve (0=linear, 1=exponential)
+    Format: target_hi, target_lo, frames, flags, vib_rate, vib_depth
+    flags: bit 0 = sweep enable, bit 1 = curve (0=linear, 1=exp), bit 2 = vibrato enable
+    vib_rate: vibrato rate in quarter-Hz units (0-255 → 0-63.75 Hz)
+    vib_depth: vibrato depth in SID freq units (high byte only, 0-255)
     """
-    if not patch.has_sweep:
-        return bytes(4)
-    flags = 0x01  # enable
-    if patch.sweep_type == "exponential":
-        flags |= 0x02
-    frames = patch.sweep_frames if patch.sweep_frames > 0 else patch.duration_frames
+    flags = 0x00
+    target_hi = 0
+    target_lo = 0
+    frames = 0
+    vib_rate = 0
+    vib_depth = 0
+
+    if patch.has_sweep:
+        flags |= 0x01
+        if patch.sweep_type == "exponential":
+            flags |= 0x02
+        target_hi = patch.sweep_target_hi
+        target_lo = patch.sweep_target_lo
+        frames = patch.sweep_frames if patch.sweep_frames > 0 else patch.duration_frames
+
+    if patch.has_vibrato:
+        flags |= 0x04
+        # Encode rate as quarter-Hz (4x), clamp to byte
+        vib_rate = min(255, round(patch.vibrato_rate * 4))
+        # Encode depth high byte (>> 8), clamp to byte
+        vib_depth = min(255, (patch.vibrato_depth >> 8) if patch.vibrato_depth > 255 else patch.vibrato_depth)
+
     return bytes([
-        patch.sweep_target_hi,
-        patch.sweep_target_lo,
+        target_hi,
+        target_lo,
         frames & 0xFF,
         flags,
+        vib_rate,
+        vib_depth,
     ])
 
 
@@ -63,11 +83,16 @@ def patch_to_asm_line(patch: SfxPatch) -> str:
 
 
 def sweep_to_asm_line(patch: SfxPatch) -> str:
-    """Format a patch's sweep as a single .byte directive line."""
+    """Format a patch's sweep/vibrato as a single .byte directive line."""
     b = patch_to_sweep_bytes(patch)
     hex_vals = ", ".join(f"${v:02X}" for v in b)
-    swept = "sweep" if patch.has_sweep else "no sweep"
-    return f"    .byte {hex_vals}  ; {patch.name} ({swept})"
+    tags = []
+    if patch.has_sweep:
+        tags.append("sweep")
+    if patch.has_vibrato:
+        tags.append("vibrato")
+    label = "+".join(tags) if tags else "no mod"
+    return f"    .byte {hex_vals}  ; {patch.name} ({label})"
 
 
 def patches_to_asm(
@@ -113,7 +138,7 @@ def patches_to_asm_tables(
 
     Emits:
         sfx_data[]: 7 bytes per entry, indexed by id*7
-        sfx_sweep[]: 4 bytes per entry, indexed by id*4
+        sfx_sweep[]: 6 bytes per entry, indexed by id*6
         exp_curve_lut[]: 16-byte exponential curve lookup (optional)
         blaster_weights[]: 8-byte weight-to-variant map (optional)
     """
@@ -136,9 +161,9 @@ def patches_to_asm_tables(
         lines.append(patch_to_asm_line(p))
     lines.append("")
 
-    # sfx_sweep table: 4 bytes per entry
-    lines.append("; 4 bytes per entry: target_hi, target_lo, frames, flags")
-    lines.append("; flags: bit0=enable, bit1=curve (0=linear, 1=exp)")
+    # sfx_sweep table: 6 bytes per entry
+    lines.append("; 6 bytes per entry: target_hi, target_lo, frames, flags, vib_rate, vib_depth")
+    lines.append("; flags: bit0=sweep, bit1=curve (0=linear, 1=exp), bit2=vibrato")
     lines.append("sfx_sweep:")
     for p in patches:
         lines.append(sweep_to_asm_line(p))

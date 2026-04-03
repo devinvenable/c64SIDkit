@@ -57,6 +57,8 @@ def cmd_info(args):
     if patch.has_sweep:
         sweep_hz = sid_freq_to_hz(patch.sweep_target)
         print(f"Sweep:      ${patch.sweep_target_hi:02X}{patch.sweep_target_lo:02X} ({sweep_hz:.1f} Hz), {patch.sweep_type}")
+    if patch.has_vibrato:
+        print(f"Vibrato:    {patch.vibrato_rate:.1f} Hz, depth {patch.vibrato_depth} SID units")
     print(f"7-byte:     {' '.join(f'${v:02X}' for v in b)}")
     if patch.description:
         print(f"Desc:       {patch.description}")

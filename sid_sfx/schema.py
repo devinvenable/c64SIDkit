@@ -61,6 +61,11 @@ class SfxPatch:
     sweep_frames: int = 0  # Number of frames for the sweep (0 = use duration_frames)
     sweep_type: str = "exponential"  # "linear" or "exponential"
 
+    # Vibrato (periodic frequency modulation — software + engine support).
+    # Applied as freq += depth * sin(2π * rate * t) each frame.
+    vibrato_rate: float = 0.0  # Hz (0 = no vibrato)
+    vibrato_depth: int = 0  # SID frequency units (peak deviation)
+
     # Filter (preview-only — engine handles filter via separate registers)
     filter_mode: str = "off"  # "off", "lowpass", "bandpass", "highpass"
     filter_cutoff: int = 0x90  # SID SIDFCHI value (0-255)
@@ -94,6 +99,10 @@ class SfxPatch:
                 raise ValueError(f"{name} must be 0-15, got {val}")
         if self.sweep_type not in ("linear", "exponential"):
             raise ValueError(f"sweep_type must be 'linear' or 'exponential', got {self.sweep_type!r}")
+        if self.vibrato_rate < 0:
+            raise ValueError(f"vibrato_rate must be >= 0, got {self.vibrato_rate}")
+        if not 0 <= self.vibrato_depth <= 0xFFFF:
+            raise ValueError(f"vibrato_depth must be 0-65535, got {self.vibrato_depth}")
 
     @property
     def cr_byte(self) -> int:
@@ -133,6 +142,10 @@ class SfxPatch:
     @property
     def has_sweep(self) -> bool:
         return self.sweep_target > 0
+
+    @property
+    def has_vibrato(self) -> bool:
+        return self.vibrato_rate > 0 and self.vibrato_depth > 0
 
     def to_bytes(self) -> bytes:
         """Encode as 7-byte SFX data (matches game engine format).

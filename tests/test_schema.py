@@ -168,3 +168,58 @@ def test_sweep_validation():
         SfxPatch(name="bad", sweep_target_hi=256)
     with pytest.raises(ValueError):
         SfxPatch(name="bad", sweep_type="cubic")
+
+
+def test_vibrato_defaults():
+    """Patch without vibrato fields should have no vibrato."""
+    p = SfxPatch(name="test")
+    assert not p.has_vibrato
+    assert p.vibrato_rate == 0.0
+    assert p.vibrato_depth == 0
+
+
+def test_vibrato_has_vibrato():
+    p = SfxPatch(name="t", vibrato_rate=15.0, vibrato_depth=100)
+    assert p.has_vibrato
+
+
+def test_vibrato_validation():
+    import pytest
+    with pytest.raises(ValueError):
+        SfxPatch(name="bad", vibrato_rate=-1.0)
+    with pytest.raises(ValueError):
+        SfxPatch(name="bad", vibrato_depth=70000)
+
+
+def test_vibrato_roundtrip_json():
+    """Vibrato fields survive JSON round-trip."""
+    p = SfxPatch(
+        name="vib_test", voice=3, waveform=Waveform.TRIANGLE,
+        freq_hi=0x27, freq_lo=0xE9,
+        attack=6, decay=8, sustain=10, release=8,
+        vibrato_rate=15.0, vibrato_depth=100,
+    )
+    with tempfile.NamedTemporaryFile(suffix=".json", delete=False) as f:
+        path = f.name
+    p.save_json(path)
+    loaded = SfxPatch.load_json(path)
+    assert loaded.vibrato_rate == 15.0
+    assert loaded.vibrato_depth == 100
+    assert loaded.has_vibrato
+    Path(path).unlink()
+
+
+def test_vibrato_to_bytes_unchanged():
+    """Vibrato fields must NOT change the 7-byte hardware export."""
+    p = SfxPatch(
+        name="vib", voice=3, waveform=Waveform.TRIANGLE,
+        freq_hi=0x27, freq_lo=0xE9,
+        attack=6, decay=8, sustain=10, release=8,
+        vibrato_rate=15.0, vibrato_depth=100,
+    )
+    p_no_vib = SfxPatch(
+        name="no_vib", voice=3, waveform=Waveform.TRIANGLE,
+        freq_hi=0x27, freq_lo=0xE9,
+        attack=6, decay=8, sustain=10, release=8,
+    )
+    assert p.to_bytes() == p_no_vib.to_bytes()

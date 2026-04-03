@@ -32,6 +32,8 @@ class SidVoiceEmulator:
         gate_off_ms: float | None = None,
         sweep_target: int = 0,
         sweep_type: str = "exponential",
+        vibrato_rate: float = 0.0,
+        vibrato_depth: int = 0,
         filter_mode: str = "off",
         filter_cutoff: int = 0x90,
         filter_resonance: int = 0xF,
@@ -57,12 +59,20 @@ class SidVoiceEmulator:
         if freq_hz < 1.0:
             freq_hz = 1.0
 
-        if sweep_target > 0:
-            end_hz = sweep_target * self.clock / (1 << 24)
-            if end_hz < 1.0:
-                end_hz = 1.0
-            wave = self._generate_swept_waveform(
-                waveform, freq_hz, end_hz, n_samples, pw_hi, sweep_type,
+        has_vibrato = vibrato_rate > 0 and vibrato_depth > 0
+
+        if sweep_target > 0 or has_vibrato:
+            end_hz = freq_hz
+            if sweep_target > 0:
+                end_hz = sweep_target * self.clock / (1 << 24)
+                if end_hz < 1.0:
+                    end_hz = 1.0
+            wave = self._generate_modulated_waveform(
+                waveform, freq_hz, end_hz, n_samples, pw_hi,
+                sweep_type if sweep_target > 0 else "linear",
+                has_sweep=sweep_target > 0,
+                vibrato_rate=vibrato_rate if has_vibrato else 0.0,
+                vibrato_depth_hz=vibrato_depth * self.clock / (1 << 24) if has_vibrato else 0.0,
             )
         else:
             # Generate waveform
@@ -83,7 +93,7 @@ class SidVoiceEmulator:
 
         return (wave * envelope).astype(np.float32)
 
-    def _generate_swept_waveform(
+    def _generate_modulated_waveform(
         self,
         waveform: Waveform,
         start_hz: float,
@@ -91,16 +101,26 @@ class SidVoiceEmulator:
         n_samples: int,
         pw_hi: int,
         sweep_type: str,
+        has_sweep: bool = True,
+        vibrato_rate: float = 0.0,
+        vibrato_depth_hz: float = 0.0,
     ) -> np.ndarray:
-        """Generate waveform with frequency sweep using a phase accumulator."""
+        """Generate waveform with frequency sweep and/or vibrato using a phase accumulator."""
         t = np.arange(n_samples, dtype=np.float64) / self.sample_rate
         frac = t * self.sample_rate / max(1, n_samples)  # 0→1 over duration
 
-        if sweep_type == "exponential" and start_hz > 0 and end_hz > 0:
-            # Exponential interpolation: f(t) = start * (end/start)^frac
-            freq_curve = start_hz * np.power(end_hz / start_hz, frac)
+        if has_sweep:
+            if sweep_type == "exponential" and start_hz > 0 and end_hz > 0:
+                freq_curve = start_hz * np.power(end_hz / start_hz, frac)
+            else:
+                freq_curve = start_hz + (end_hz - start_hz) * frac
         else:
-            freq_curve = start_hz + (end_hz - start_hz) * frac
+            freq_curve = np.full(n_samples, start_hz, dtype=np.float64)
+
+        # Apply vibrato: periodic frequency modulation
+        if vibrato_rate > 0 and vibrato_depth_hz > 0:
+            vibrato_mod = vibrato_depth_hz * np.sin(2.0 * np.pi * vibrato_rate * t)
+            freq_curve = np.maximum(1.0, freq_curve + vibrato_mod)
 
         # Phase accumulator: integrate instantaneous frequency
         phase_increment = freq_curve / self.sample_rate
