@@ -4,6 +4,10 @@ import tempfile
 import wave
 from pathlib import Path
 
+import numpy as np
+import pytest
+
+import sid_sfx.wav_export as wav_export
 from sid_sfx.schema import SfxPatch, Waveform
 from sid_sfx.asm_export import (
     patch_to_bytes, patches_to_asm, patch_to_asm_line, patches_to_c_array,
@@ -220,3 +224,47 @@ def test_vibrato_preset_renders():
     samples = render_patch(p)
     assert len(samples) > 0
     assert samples.dtype == np.float32
+
+
+def test_render_patch_defaults_to_resid_8580(monkeypatch):
+    patch = PRESETS["fire"]
+    captured = {}
+
+    def fake_resid(p, sample_rate=0, chip_model=""):
+        captured["patch"] = p
+        captured["sample_rate"] = sample_rate
+        captured["chip_model"] = chip_model
+        return np.zeros(8, dtype=np.float32)
+
+    monkeypatch.setattr(wav_export, "render_patch_resid", fake_resid)
+    samples = wav_export.render_patch(patch)
+
+    assert samples.dtype == np.float32
+    assert captured["patch"] is patch
+    assert captured["sample_rate"] == 44100
+    assert captured["chip_model"] == "8580"
+
+
+def test_render_patch_supports_svf_fallback(monkeypatch):
+    patch = PRESETS["fire"]
+    captured = {}
+
+    class FakeEmulator:
+        def __init__(self, sample_rate):
+            captured["sample_rate"] = sample_rate
+
+        def render(self, **kwargs):
+            captured["kwargs"] = kwargs
+            return np.zeros(8, dtype=np.float32)
+
+    monkeypatch.setattr(wav_export, "SidVoiceEmulator", FakeEmulator)
+    samples = wav_export.render_patch(patch, emulator="svf", sample_rate=22050)
+
+    assert samples.dtype == np.float32
+    assert captured["sample_rate"] == 22050
+    assert captured["kwargs"]["frequency"] == patch.frequency
+
+
+def test_render_patch_rejects_unknown_emulator():
+    with pytest.raises(ValueError, match="Unsupported emulator"):
+        wav_export.render_patch(PRESETS["fire"], emulator="unknown")

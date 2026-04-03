@@ -16,9 +16,15 @@ def cmd_preview(args):
     """Render a patch JSON to WAV."""
     patch = SfxPatch.load_json(args.input)
     out = args.output or args.input.replace(".json", ".wav")
-    render_patch_to_wav(patch, out)
+    render_patch_to_wav(
+        patch,
+        out,
+        emulator=args.emulator,
+        chip_model=args.chip,
+    )
     freq_hz = sid_freq_to_hz(patch.frequency)
-    print(f"Rendered {patch.name} -> {out}  ({freq_hz:.1f} Hz, {patch.waveform.name})")
+    emu_desc = args.emulator if args.emulator == "svf" else f"{args.emulator}/{args.chip}"
+    print(f"Rendered {patch.name} -> {out}  ({freq_hz:.1f} Hz, {patch.waveform.name}, {emu_desc})")
 
 
 def cmd_export(args):
@@ -84,6 +90,18 @@ def main():
     p_preview = sub.add_parser("preview", help="Render patch to WAV")
     p_preview.add_argument("input", help="Patch JSON file")
     p_preview.add_argument("-o", "--output", help="Output WAV path")
+    p_preview.add_argument(
+        "--emulator",
+        choices=["resid", "svf"],
+        default="resid",
+        help="Preview emulator backend",
+    )
+    p_preview.add_argument(
+        "--chip",
+        choices=["6581", "8580"],
+        default="8580",
+        help="SID chip model (used by reSID emulator)",
+    )
     p_preview.set_defaults(func=cmd_preview)
 
     p_export = sub.add_parser("export", help="Export patches to assembly")

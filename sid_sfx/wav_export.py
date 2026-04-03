@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import struct
 import wave
 from pathlib import Path
 
 import numpy as np
 
 from sid_sfx.schema import SfxPatch, ATTACK_MS, DECAY_RELEASE_MS
+from sid_sfx.resid_emulator import render_patch_resid
 from sid_sfx.sid_emulator import SidVoiceEmulator
 
 
@@ -23,8 +23,22 @@ def estimate_duration_ms(patch: SfxPatch) -> float:
     return max(frame_ms, min(envelope_ms, 5000.0))
 
 
-def render_patch(patch: SfxPatch, sample_rate: int = 44100) -> np.ndarray:
+def render_patch(
+    patch: SfxPatch,
+    sample_rate: int = 44100,
+    emulator: str = "resid",
+    chip_model: str = "8580",
+) -> np.ndarray:
     """Render a patch to float32 audio samples."""
+    if emulator == "resid":
+        try:
+            return render_patch_resid(patch, sample_rate=sample_rate, chip_model=chip_model)
+        except RuntimeError:
+            # Keep preview/WAV export functional even when pyresidfp is unavailable.
+            emulator = "svf"
+    if emulator != "svf":
+        raise ValueError(f"Unsupported emulator {emulator!r}; expected 'resid' or 'svf'")
+
     emu = SidVoiceEmulator(sample_rate=sample_rate)
     duration_ms = estimate_duration_ms(patch)
 
@@ -53,9 +67,20 @@ def render_patch(patch: SfxPatch, sample_rate: int = 44100) -> np.ndarray:
     )
 
 
-def render_patch_to_wav(patch: SfxPatch, path: str | Path, sample_rate: int = 44100):
+def render_patch_to_wav(
+    patch: SfxPatch,
+    path: str | Path,
+    sample_rate: int = 44100,
+    emulator: str = "resid",
+    chip_model: str = "8580",
+):
     """Render a patch and write to a 16-bit mono WAV file."""
-    samples = render_patch(patch, sample_rate)
+    samples = render_patch(
+        patch,
+        sample_rate=sample_rate,
+        emulator=emulator,
+        chip_model=chip_model,
+    )
 
     # Normalize and convert to 16-bit PCM
     peak = np.max(np.abs(samples))
