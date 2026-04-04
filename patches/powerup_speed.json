@@ -4,9 +4,9 @@
   "waveform": "SAWTOOTH",
   "freq_hi": 26,
   "freq_lo": 155,
-  "attack": 2,
-  "decay": 6,
-  "sustain": 13,
+  "attack": 1,
+  "decay": 1,
+  "sustain": 4,
   "release": 6,
   "pw_hi": 4,
   "duration_frames": 255,
@@ -20,5 +20,7 @@
   "filter_cutoff": 144,
   "filter_resonance": 15,
   "filter_cutoff_sweep": 0,
-  "description": "Buzzing sawtooth drone — speed powerup sustained tone"
+  "loop": true,
+  "loop_preview_seconds": 8.0,
+  "description": "Buzzing sawtooth drone \u2014 speed powerup sustained tone (looped)"
 }

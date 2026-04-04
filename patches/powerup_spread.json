@@ -1,12 +1,12 @@
 {
   "name": "powerup_spread",
   "voice": 3,
-  "waveform": "PULSE",
-  "freq_hi": 53,
-  "freq_lo": 55,
-  "attack": 4,
-  "decay": 8,
-  "sustain": 14,
+  "waveform": "NOISE",
+  "freq_hi": 80,
+  "freq_lo": 0,
+  "attack": 1,
+  "decay": 1,
+  "sustain": 2,
   "release": 8,
   "pw_hi": 16,
   "duration_frames": 255,
@@ -20,5 +20,7 @@
   "filter_cutoff": 144,
   "filter_resonance": 15,
   "filter_cutoff_sweep": 0,
-  "description": "Shimmering pulse drone — spread powerup sustained tone"
+  "loop": true,
+  "loop_preview_seconds": 8.0,
+  "description": "Shimmering pulse drone \u2014 spread powerup sustained tone (looped)"
 }

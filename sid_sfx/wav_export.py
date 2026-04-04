@@ -40,11 +40,17 @@ def render_patch(
         raise ValueError(f"Unsupported emulator {emulator!r}; expected 'resid' or 'svf'")
 
     emu = SidVoiceEmulator(sample_rate=sample_rate)
-    duration_ms = estimate_duration_ms(patch)
 
-    attack_ms = ATTACK_MS[patch.attack]
-    decay_ms = DECAY_RELEASE_MS[patch.decay]
-    gate_off_ms = attack_ms + decay_ms + 50.0
+    is_loop = getattr(patch, "loop", False)
+    if is_loop:
+        loop_seconds = getattr(patch, "loop_preview_seconds", 5.0)
+        duration_ms = loop_seconds * 1000.0
+        gate_off_ms = duration_ms  # gate stays open
+    else:
+        duration_ms = estimate_duration_ms(patch)
+        attack_ms = ATTACK_MS[patch.attack]
+        decay_ms = DECAY_RELEASE_MS[patch.decay]
+        gate_off_ms = attack_ms + decay_ms + 50.0
 
     return emu.render(
         waveform=patch.waveform,

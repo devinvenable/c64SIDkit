@@ -72,6 +72,11 @@ class SfxPatch:
     filter_resonance: int = 0xF  # SID resonance nibble (0-15)
     filter_cutoff_sweep: int = 0  # Sweep target for cutoff (0 = no sweep)
 
+    # Loop: when True, gate stays open indefinitely (sustained/held sounds).
+    # Preview renders loop_preview_seconds of audio instead of one-shot envelope.
+    loop: bool = False
+    loop_preview_seconds: float = 5.0
+
     # Optional description for documentation
     description: str = ""
 
