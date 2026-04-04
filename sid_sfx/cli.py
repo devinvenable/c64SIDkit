@@ -95,6 +95,34 @@ def cmd_game_export(args):
         print(output)
 
 
+def cmd_compare(args):
+    """Render a patch through all available backends for comparison."""
+    patch = SfxPatch.load_json(args.input)
+
+    # Auto-apply game filter for voice 1 (same as preview)
+    if patch.voice == 1 and patch.filter_mode == "off" and not args.no_game_filter:
+        print(f"Auto-applying game band-pass filter for voice 1 patch '{patch.name}'.")
+        patch.filter_mode = "bandpass"
+        patch.filter_cutoff = 0x90
+        patch.filter_resonance = 0xF
+
+    base = args.input.replace(".json", "")
+    backends = ["resid", "svf", "vice"]
+    chip = args.chip
+
+    for backend in backends:
+        out_path = f"{base}_{backend}.wav"
+        try:
+            render_patch_to_wav(patch, out_path, emulator=backend, chip_model=chip)
+            freq_hz = sid_freq_to_hz(patch.frequency)
+            emu_desc = backend if backend == "svf" else f"{backend}/{chip}"
+            print(f"  {backend:6s} -> {out_path}  ({freq_hz:.1f} Hz, {patch.waveform.name}, {emu_desc})")
+        except Exception as e:
+            print(f"  {backend:6s} -> FAILED: {e}")
+
+    print("Compare complete.")
+
+
 def cmd_from_hex(args):
     """Create a patch JSON from 7 hex bytes."""
     hex_str = args.hex.replace(" ", "").replace(",", "").replace("$", "").replace("0x", "")
@@ -117,7 +145,7 @@ def main():
     p_preview.add_argument("-o", "--output", help="Output WAV path")
     p_preview.add_argument(
         "--emulator",
-        choices=["resid", "svf"],
+        choices=["resid", "svf", "vice"],
         default="resid",
         help="Preview emulator backend",
     )
@@ -147,6 +175,22 @@ def main():
     p_game.add_argument("inputs", nargs="+", help="Blaster variant patch JSONs (indices 1+)")
     p_game.add_argument("-o", "--output", help="Output .asm path")
     p_game.set_defaults(func=cmd_game_export)
+
+    p_compare = sub.add_parser("compare", help="Render patch through all backends for comparison")
+    p_compare.add_argument("input", help="Patch JSON file")
+    p_compare.add_argument(
+        "--chip",
+        choices=["6581", "8580"],
+        default="8580",
+        help="SID chip model",
+    )
+    p_compare.add_argument(
+        "--no-game-filter",
+        action="store_true",
+        default=False,
+        help="Disable auto-applying game band-pass filter on voice 1 patches",
+    )
+    p_compare.set_defaults(func=cmd_compare)
 
     p_info = sub.add_parser("info", help="Show patch details")
     p_info.add_argument("input", help="Patch JSON file")
