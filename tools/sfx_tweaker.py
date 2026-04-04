@@ -345,6 +345,7 @@ def main():
     is_rendering = False
     current_sound: Optional[pygame.mixer.Sound] = None
     needs_render = True  # render on first loop
+    was_sustain = False
 
     clock = pygame.time.Clock()
     running = True
@@ -372,6 +373,8 @@ def main():
                     patch = build_patch_from_sliders(sliders, current_preset)
                     snd = render_to_sound(patch)
                     if snd:
+                        if current_sound:
+                            current_sound.stop()
                         current_sound = snd
                         current_sound.play()
                         last_play_time = now
@@ -423,7 +426,27 @@ def main():
                             needs_render = True
 
         # Auto-repeat playback
-        if auto_repeat and (now - last_play_time) >= AUTO_REPEAT_INTERVAL:
+        is_sustain = bool(sliders["loop"].value)
+        if is_sustain and not was_sustain:
+            # Just switched to sustain — start looping
+            patch = build_patch_from_sliders(sliders, current_preset)
+            snd = render_to_sound(patch)
+            if snd:
+                if current_sound:
+                    current_sound.stop()
+                current_sound = snd
+                current_sound.play(loops=-1)
+                needs_render = False
+        elif not is_sustain and was_sustain:
+            # Just switched back to one-shot — stop the loop
+            if current_sound:
+                current_sound.stop()
+            needs_render = True
+        elif is_sustain:
+            # Sustain active — keep looping, ignore slider changes
+            needs_render = False
+        elif auto_repeat and (now - last_play_time) >= AUTO_REPEAT_INTERVAL:
+            # One-shot: retrigger periodically
             if needs_render or current_sound is None:
                 patch = build_patch_from_sliders(sliders, current_preset)
                 snd = render_to_sound(patch)
@@ -431,8 +454,10 @@ def main():
                     current_sound = snd
                     needs_render = False
             if current_sound:
+                current_sound.stop()
                 current_sound.play()
                 last_play_time = now
+        was_sustain = is_sustain
 
         # ---- Draw ----
         screen.fill(BG_COLOR)
