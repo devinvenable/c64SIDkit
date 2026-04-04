@@ -91,9 +91,8 @@ init:
         dex
         bpl -
 
-        ; Default: volume 15, no filter
-        lda #$0F
-        sta SID_MODE_VOL
+        ; Gameplay-default filter state (voice 1 low-pass routed)
+        jsr set_default_filter
 
         ; Clear voice state
         ldx #2
@@ -688,33 +687,30 @@ play_sfx:
 .done:
         rts
 
-; Per-preset filter routing — loads from tables indexed by SFX number in $06.
+; A=$06 index already set. Chooses gameplay default vs blaster override.
 apply_filter_for_sfx:
+        jsr set_default_filter
         ldy $06
-        lda sfx_filter_mode,y
-        beq .af_no_filter
-        ; Filter enabled — set cutoff, resonance+routing, mode+vol
-        pha                     ; save mode byte
+        lda sfx_blaster_flag,y
+        beq .af_done
+        lda #$F1            ; max resonance, route voice 1
+        sta SID_RES_FILT
+        lda sfx_blaster_cutoff,y
+        sta SID_FC_HI
+        lda #$2F            ; band-pass + volume 15
+        sta SID_MODE_VOL
+.af_done:
+        rts
+
+set_default_filter:
+        lda #$1F            ; low-pass + volume 15
+        sta SID_MODE_VOL
+        lda #$41            ; resonance $4, route voice 1
+        sta SID_RES_FILT
         lda #$00
         sta SID_FC_LO
-        lda sfx_filter_cutoff,y
+        lda #$20            ; low cutoff baseline
         sta SID_FC_HI
-        lda sfx_filter_resonance,y
-        asl
-        asl
-        asl
-        asl                     ; shift resonance to top nibble
-        ora sfx_filter_voice,y  ; OR in voice routing bits
-        sta SID_RES_FILT
-        pla                     ; restore mode byte
-        ora #$0F                ; add volume 15
-        sta SID_MODE_VOL
-        rts
-.af_no_filter:
-        lda #$0F                ; volume 15, no filter
-        sta SID_MODE_VOL
-        lda #$00
-        sta SID_RES_FILT
         rts
 
 clear_all_voices:
@@ -728,6 +724,9 @@ clear_all_voices:
         sta voice_frames,x
         sta voice_sfx_idx,x
         sta voice_cr,x
+        sta voice_sr,x
+        sta voice_releasing,x
+        sta voice_rel_countdown,x
         sta voice_freq_hi,x
         sta voice_freq_lo,x
         sta voice_sweep_flags,x
@@ -735,6 +734,7 @@ clear_all_voices:
         sta voice_sweep_tgt_lo,x
         sta voice_sweep_frames,x
         sta voice_sweep_pos,x
+        sta voice_sweep_mult,x
         sta voice_vib_phase,x
         sta voice_vib_rate,x
         sta voice_vib_depth,x
@@ -777,6 +777,19 @@ play_loaded_voice:
         sta SID_BASE+5,x    ; AD
         lda $0C
         sta SID_BASE+6,x    ; SR
+
+        ; Store SR per voice for release timing
+        txa
+        pha
+        lda $0E             ; voice index
+        tax
+        lda $0C
+        sta voice_sr,x
+        lda #$00
+        sta voice_releasing,x
+        sta voice_rel_countdown,x
+        pla
+        tax                 ; restore SID offset
 
         ; Set pulse width
         lda #$00
@@ -852,6 +865,10 @@ play_loaded_voice:
         lda #$00
         sta voice_sweep_pos,x
         sta voice_vib_phase,x
+        ; Load exponential sweep multiplier (indexed by preset#)
+        ldy $06
+        lda sfx_sweep_mult,y
+        sta voice_sweep_mult,x
 
         ; Vibrato params
         lda sfx_sweep+4,y   ; vib_rate
@@ -887,31 +904,67 @@ update_voice:
         lda voice_active,x
         beq .uv_done
 
-        ; Decrement frame counter
-        dec voice_frames,x
-        bne .uv_sweep
+        ; Check if we're in release phase
+        lda voice_releasing,x
+        bne .uv_in_release
 
-        ; Frame counter expired — gate off
+        ; --- ACTIVE PHASE (gate on) ---
+        ; Decrement frame counter (clamp at 0)
+        lda voice_frames,x
+        beq .uv_check_done      ; duration expired, check sweep
+        dec voice_frames,x
+        jmp .uv_sweep           ; still counting, do sweep/vibrato
+
+.uv_check_done:
+        ; Duration expired — gate off unless sweep still running
+        lda voice_sweep_flags,x
+        and #$01
+        beq .uv_start_release   ; no sweep, start release
+        lda voice_sweep_pos,x
+        cmp voice_sweep_frames,x
+        bcc .uv_sweep            ; sweep still active, keep gate on
+
+.uv_start_release:
+        ; Gate off — begin release phase
         lda voice_cr,x
-        and #$FE            ; clear gate
+        and #$FE            ; clear gate bit
+        sta voice_cr,x
         cpx #$00
         bne +
         sta SID_V1_CR
-        jmp .uv_deactivate
+        jmp .uv_set_releasing
 +       cpx #$01
         bne +
         sta SID_V2_CR
-        jmp .uv_deactivate
+        jmp .uv_set_releasing
 +       sta SID_V3_CR
+
+.uv_set_releasing:
+        lda #$01
+        sta voice_releasing,x
+        ; Set release countdown from SID release value (SR low nibble)
+        ; Use lookup table: SID release rates mapped to frame counts
+        lda voice_sr,x
+        and #$0F            ; release nibble
+        tay
+        lda sid_release_frames,y
+        sta voice_rel_countdown,x
+        jmp .uv_sweep       ; keep running sweep/vibrato during release
+
+        ; --- RELEASE PHASE (gate off, envelope decaying) ---
+.uv_in_release:
+        dec voice_rel_countdown,x
+        beq .uv_deactivate
+        jmp .uv_sweep       ; keep sweep/vibrato alive during release
 
 .uv_deactivate:
         lda #$00
         sta voice_active,x
-        ; Restore volume-only (no filter) when voice deactivates
-        lda #$0F
-        sta SID_MODE_VOL
-        lda #$00
-        sta SID_RES_FILT
+        sta voice_releasing,x
+        ; Restore gameplay-default filter when voice 1 ends
+        cpx #$00
+        bne .uv_done
+        jsr set_default_filter
 .uv_done:
         rts
 
@@ -931,11 +984,78 @@ update_voice:
 
         inc voice_sweep_pos,x
 
-        ; Linear interpolation: freq = start + (target - start) * pos / frames
-        ; Simplified: compute delta per frame, add to current
-        ; For simplicity, use linear approach for both (exponential is close enough
-        ; for audition purposes at frame rate)
+        ; Check exponential flag (bit 1 of sweep flags)
+        lda voice_sweep_flags,x
+        and #$02
+        bne .uv_sweep_exp
+        jmp .uv_sweep_linear
 
+        ; === EXPONENTIAL SWEEP ===
+        ; Descending: freq_new = (freq * mult) >> 8
+        ; Ascending (bit 3): freq_new = freq + (freq * mult) >> 8
+.uv_sweep_exp:
+        ; Load current freq into ZP
+        lda voice_freq_hi,x
+        sta $10
+        lda voice_freq_lo,x
+        sta $11
+
+        ; 16x8 multiply: $10:$11 * voice_sweep_mult
+        ; Process multiplier bits LSB-first; shift-right accumulator
+        ; After 8 iterations: $15:$14 = (freq * mult) >> 8
+        lda voice_sweep_mult,x
+        sta $12             ; multiplier
+        lda #$00
+        sta $13             ; result low (fractional, discarded)
+        sta $14             ; result mid → new freq_lo
+        sta $15             ; result high → new freq_hi
+
+        ldy #8
+.expmul_loop:
+        lsr $12             ; shift mult bit into carry
+        bcc .expmul_no_add
+        ; Add freq to high 16 bits of result
+        clc
+        lda $14
+        adc $11
+        sta $14
+        lda $15
+        adc $10
+        sta $15
+.expmul_no_add:
+        ; Shift 24-bit result right
+        lsr $15
+        ror $14
+        ror $13
+        dey
+        bne .expmul_loop
+
+        ; $15:$14 = (freq * mult) >> 8
+        ; Check ascending flag (bit 3)
+        lda voice_sweep_flags,x
+        and #$08
+        bne .exp_ascending
+
+        ; --- Descending: new freq = product ---
+        lda $15
+        sta voice_freq_hi,x
+        lda $14
+        sta voice_freq_lo,x
+        jmp .uv_set_freq
+
+.exp_ascending:
+        ; --- Ascending: new freq = current + product ---
+        lda $11
+        clc
+        adc $14
+        sta voice_freq_lo,x
+        lda $10
+        adc $15
+        sta voice_freq_hi,x
+        jmp .uv_set_freq
+
+        ; === LINEAR SWEEP (for presets without exponential flag) ===
+.uv_sweep_linear:
         ; Load current freq
         lda voice_freq_hi,x
         sta $10
@@ -957,7 +1077,6 @@ update_voice:
         sbc $10
         sta $15             ; delta hi
 
-        ; Divide delta by remaining frames
         ; remaining = sweep_frames - sweep_pos + 1
         lda voice_sweep_frames,x
         sec
@@ -966,13 +1085,10 @@ update_voice:
         adc #$01
         sta $16             ; remaining frames
 
-        ; Simple: step = delta / remaining (8-bit divide of high byte)
-        ; For better accuracy, we'll just do a proportional step
-        ; step_hi = delta_hi / remaining
         lda $15
-        bpl .sweep_down_check
-        ; Negative delta (descending sweep)
-        ; Negate
+        bpl .sweep_up
+        ; Negative delta (descending linear sweep)
+        ; Negate delta
         lda #$00
         sec
         sbc $14
@@ -985,23 +1101,22 @@ update_voice:
         ; Subtract from current freq
         lda $11
         sec
-        sbc $14             ; result lo
+        sbc $14
         sta voice_freq_lo,x
         lda $10
-        sbc $15             ; result hi
+        sbc $15
         sta voice_freq_hi,x
         jmp .uv_set_freq
 
-.sweep_down_check:
-        ; Positive or zero delta (ascending sweep)
+.sweep_up:
+        ; Positive delta (ascending linear sweep)
         jsr .divide_delta
-        ; Add to current freq
         lda $11
         clc
-        adc $14             ; result lo
+        adc $14
         sta voice_freq_lo,x
         lda $10
-        adc $15             ; result hi
+        adc $15
         sta voice_freq_hi,x
 
 .uv_set_freq:
@@ -1020,11 +1135,9 @@ update_voice:
         cmp #$01
         beq .div_done       ; divide by 1 = no-op
 
-        ; Simple shift-based divide: if remaining > delta_hi, result is small
-        ; Use repeated subtraction for simplicity (max ~60 iterations)
         lda #$00
-        sta $17             ; result hi
-        sta $18             ; result lo
+        sta $17
+        sta $18
 
         ; 16-bit / 8-bit division
         lda #$00
@@ -1190,9 +1303,9 @@ sfx_name_ptrs:
 ; SFX data table: 7 bytes per entry (voice, CR, freq_hi, freq_lo, AD, SR, pw_hi)
 ; =============================================================================
 sfx_data:
-  !byte $01, $21, $18, $00, $06, $06, $00  ; fire (v1 SAW)
+  !byte $03, $11, $8F, $5C, $83, $84, $39  ; fire (v3 TRI, sweep pew)
   !byte $02, $81, $08, $00, $09, $09, $00  ; explode (v2 NOISE)
-  !byte $01, $41, $0C, $00, $04, $03, $04  ; hit (v1 PULSE)
+  !byte $02, $81, $5C, $34, $03, $69, $96  ; hit (v2 NOISE, sweep)
   !byte $01, $41, $09, $00, $07, $27, $05  ; weakpoint_hit (v1 PULSE)
   !byte $01, $81, $10, $00, $02, $00, $00  ; enemy_hit (v1 NOISE)
   !byte $03, $11, $06, $00, $04, $04, $00  ; march (v3 TRI)
@@ -1243,123 +1356,68 @@ sfx_layer_data:
   !byte $00, $00, $00, $00, $00, $00, $00  ; combo
   !byte $00, $00, $00, $00, $00, $00, $00  ; powerup_speed
 
-; Per-SFX filter tables (indexed by SFX number, 1 byte each):
-; mode: 0=off, $10=lowpass, $20=bandpass, $40=highpass
-sfx_filter_mode:
-  !byte $10  ; fire (lowpass)
-  !byte $00  ; explode (off)
-  !byte $10  ; hit (lowpass)
-  !byte $00  ; weakpoint_hit (off)
-  !byte $00  ; enemy_hit (off)
-  !byte $00  ; march (off)
-  !byte $00  ; kraft_alarm (off)
-  !byte $00  ; game_over (off)
-  !byte $00  ; death (off)
-  !byte $00  ; warp (off)
-  !byte $00  ; portal_ping (off)
-  !byte $00  ; powerup (off)
-  !byte $00  ; bounce (off)
-  !byte $00  ; blaster_bolt (off)
-  !byte $00  ; xwing_blaster (off)
-  !byte $00  ; heavy_repeater (off)
-  !byte $00  ; turbolaser (off)
-  !byte $00  ; tie_cannon (off)
-  !byte $00  ; shield_on_v3 (off)
-  !byte $00  ; ion_cannon (off)
-  !byte $00  ; powerup_spread (off)
-  !byte $00  ; powerup_shield (off)
-  !byte $00  ; combo (off)
-  !byte $00  ; powerup_speed (off)
+; Per-SFX filter metadata:
+; blaster variants use fire override (SIDRES=$F1, SIDVOL=$2F, cutoff from table).
+sfx_blaster_flag:
+  !byte 0  ; fire (v3 tri, no blaster filter)
+  !byte 0  ; explode
+  !byte 0  ; hit
+  !byte 0  ; weakpoint_hit
+  !byte 0  ; enemy_hit
+  !byte 0  ; march
+  !byte 0  ; kraft_alarm
+  !byte 0  ; game_over
+  !byte 0  ; death
+  !byte 0  ; warp
+  !byte 0  ; portal_ping
+  !byte 0  ; powerup
+  !byte 0  ; bounce
+  !byte 1  ; blaster_bolt
+  !byte 1  ; xwing_blaster
+  !byte 1  ; heavy_repeater
+  !byte 1  ; turbolaser
+  !byte 1  ; tie_cannon
+  !byte 0  ; shield_on_v3
+  !byte 1  ; ion_cannon
+  !byte 0  ; powerup_spread
+  !byte 0  ; powerup_shield
+  !byte 0  ; combo
+  !byte 0  ; powerup_speed
 
-; cutoff: FC_HI value per preset
-sfx_filter_cutoff:
-  !byte $2F  ; fire
-  !byte $00  ; explode
-  !byte $90  ; hit
-  !byte $00  ; weakpoint_hit
-  !byte $00  ; enemy_hit
-  !byte $00  ; march
-  !byte $00  ; kraft_alarm
-  !byte $00  ; game_over
-  !byte $00  ; death
-  !byte $00  ; warp
-  !byte $00  ; portal_ping
-  !byte $00  ; powerup
-  !byte $00  ; bounce
-  !byte $00  ; blaster_bolt
-  !byte $00  ; xwing_blaster
-  !byte $00  ; heavy_repeater
-  !byte $00  ; turbolaser
-  !byte $00  ; tie_cannon
-  !byte $00  ; shield_on_v3
-  !byte $00  ; ion_cannon
-  !byte $00  ; powerup_spread
-  !byte $00  ; powerup_shield
-  !byte $00  ; combo
-  !byte $00  ; powerup_speed
-
-; resonance: top nibble of RES_FILT (0-15)
-sfx_filter_resonance:
-  !byte $05  ; fire
-  !byte $00  ; explode
-  !byte $0F  ; hit
-  !byte $00  ; weakpoint_hit
-  !byte $00  ; enemy_hit
-  !byte $00  ; march
-  !byte $00  ; kraft_alarm
-  !byte $00  ; game_over
-  !byte $00  ; death
-  !byte $00  ; warp
-  !byte $00  ; portal_ping
-  !byte $00  ; powerup
-  !byte $00  ; bounce
-  !byte $00  ; blaster_bolt
-  !byte $00  ; xwing_blaster
-  !byte $00  ; heavy_repeater
-  !byte $00  ; turbolaser
-  !byte $00  ; tie_cannon
-  !byte $00  ; shield_on_v3
-  !byte $00  ; ion_cannon
-  !byte $00  ; powerup_spread
-  !byte $00  ; powerup_shield
-  !byte $00  ; combo
-  !byte $00  ; powerup_speed
-
-; voice routing: bit mask (voice 1=bit0, 2=bit1, 3=bit2)
-sfx_filter_voice:
-  !byte $04  ; fire (voice 3)
-  !byte $00  ; explode
-  !byte $02  ; hit (voice 2)
-  !byte $00  ; weakpoint_hit
-  !byte $00  ; enemy_hit
-  !byte $00  ; march
-  !byte $00  ; kraft_alarm
-  !byte $00  ; game_over
-  !byte $00  ; death
-  !byte $00  ; warp
-  !byte $00  ; portal_ping
-  !byte $00  ; powerup
-  !byte $00  ; bounce
-  !byte $00  ; blaster_bolt
-  !byte $00  ; xwing_blaster
-  !byte $00  ; heavy_repeater
-  !byte $00  ; turbolaser
-  !byte $00  ; tie_cannon
-  !byte $00  ; shield_on_v3
-  !byte $00  ; ion_cannon
-  !byte $00  ; powerup_spread
-  !byte $00  ; powerup_shield
-  !byte $00  ; combo
-  !byte $00  ; powerup_speed
+sfx_blaster_cutoff:
+  !byte $90 ; fire
+  !byte $20 ; explode
+  !byte $20 ; hit
+  !byte $20 ; weakpoint_hit
+  !byte $20 ; enemy_hit
+  !byte $20 ; march
+  !byte $20 ; kraft_alarm
+  !byte $20 ; game_over
+  !byte $20 ; death
+  !byte $20 ; warp
+  !byte $20 ; portal_ping
+  !byte $20 ; powerup
+  !byte $20 ; bounce
+  !byte $90 ; blaster_bolt
+  !byte $90 ; xwing_blaster
+  !byte $90 ; heavy_repeater
+  !byte $90 ; turbolaser
+  !byte $90 ; tie_cannon
+  !byte $20 ; shield_on_v3
+  !byte $90 ; ion_cannon
+  !byte $20 ; powerup_spread
+  !byte $20 ; powerup_shield
+  !byte $20 ; combo
+  !byte $20 ; powerup_speed
 
 ; =============================================================================
 ; SFX sweep table: 6 bytes per entry (target_hi, target_lo, frames, flags, vib_rate, vib_depth)
 ; flags: bit0=sweep, bit1=exp_curve, bit2=vibrato
 ; =============================================================================
 sfx_sweep:
-  !byte $00,$00,$00,$00,$00,$00  ; fire
+  !byte $0E,$21,$0D,$03,$00,$00  ; fire (sweep exp 13fr down to $0E)
   !byte $00,$00,$00,$00,$00,$00  ; explode
-  !byte $00,$00,$00,$00,$00,$00  ; hit
+  !byte $2D,$9A,$05,$03,$00,$00  ; hit (sweep exp 5fr)
   !byte $00,$00,$00,$00,$00,$00  ; weakpoint_hit
   !byte $00,$00,$00,$00,$00,$00  ; enemy_hit
   !byte $00,$00,$00,$00,$00,$00  ; march
@@ -1377,16 +1435,55 @@ sfx_sweep:
   !byte $1A,$9C,$05,$03,$00,$00  ; tie_cannon (sweep exp)
   !byte $00,$00,$00,$04,$3C,$64  ; shield_on_v3 (vibrato only)
   !byte $01,$FF,$14,$03,$00,$00  ; ion_cannon (sweep exp)
-  !byte $6A,$6D,$1E,$07,$20,$3C  ; powerup_spread (sweep exp + vibrato)
+  !byte $6A,$6D,$1E,$0F,$20,$3C  ; powerup_spread (sweep exp ascending + vibrato)
   !byte $10,$A1,$28,$05,$10,$50  ; powerup_shield (sweep linear + vibrato)
   !byte $00,$00,$00,$00,$00,$00  ; combo
-  !byte $4F,$D2,$19,$07,$30,$28  ; powerup_speed (sweep exp + vibrato)
+  !byte $4F,$D2,$19,$0F,$30,$28  ; powerup_speed (sweep exp ascending + vibrato)
+
+; Exponential sweep multiplier table (one byte per preset, indexed by preset#)
+; Descending: mult = round(256 * (target/start)^(1/frames)), freq_new = (freq * mult) >> 8
+; Ascending (bit 3 set): growth byte, freq_new = freq + (freq * growth) >> 8
+sfx_sweep_mult:
+  !byte $D6  ; fire         214  (36700 → 3617 in 13fr)
+  !byte $00  ; explode      (no sweep)
+  !byte $DE  ; hit          222  (23604 → 11674 in 5fr)
+  !byte $00  ; weakpoint_hit
+  !byte $00  ; enemy_hit
+  !byte $00  ; march
+  !byte $00  ; kraft_alarm
+  !byte $00  ; game_over
+  !byte $00  ; death
+  !byte $00  ; warp
+  !byte $00  ; portal_ping
+  !byte $00  ; powerup
+  !byte $00  ; bounce
+  !byte $B9  ; blaster_bolt 185  (10240 → 768 in 8fr)
+  !byte $A7  ; xwing_blast  167  (32768 → 2555 in 6fr)
+  !byte $C1  ; heavy_rptr   193  (21286 → 1277 in 10fr)
+  !byte $D6  ; turbolaser   214  (17029 → 681 in 18fr)
+  !byte $BB  ; tie_cannon   187  (32768 → 6812 in 5fr)
+  !byte $00  ; shield_on_v3 (vibrato only)
+  !byte $DA  ; ion_cannon   218  (12772 → 511 in 20fr)
+  !byte $06  ; powerup_sprd   6  growth (13623 → 27245 in 30fr)
+  !byte $00  ; powerup_shld (linear sweep)
+  !byte $00  ; combo
+  !byte $0C  ; powerup_spd   12  growth (6811 → 20434 in 25fr)
+
+; =============================================================================
+; SID release time lookup (frames at 50Hz PAL)
+; Index = SID release nibble (0-15)
+; Values: 6ms=1, 24ms=2, 48ms=3, 72ms=4, 114ms=6, 168ms=9,
+;         204ms=11, 240ms=12, 300ms=15, 750ms=38, 1.5s=75,
+;         2.4s=120, 3s=150, 9s=255, 15s=255, 24s=255
+; =============================================================================
+sid_release_frames:
+  !byte 1, 2, 3, 4, 6, 9, 11, 12, 15, 38, 75, 120, 150, 255, 255, 255
 
 ; =============================================================================
 ; Duration frames per SFX (gate-off timing)
 ; =============================================================================
 sfx_duration:
-  !byte 10   ; fire
+  !byte 15   ; fire (must outlast 13fr sweep)
   !byte 15   ; explode
   !byte 8    ; hit
   !byte 12   ; weakpoint_hit
@@ -1418,6 +1515,9 @@ voice_active:       !byte 0, 0, 0
 voice_frames:       !byte 0, 0, 0
 voice_sfx_idx:      !byte 0, 0, 0
 voice_cr:           !byte 0, 0, 0
+voice_sr:           !byte 0, 0, 0
+voice_releasing:    !byte 0, 0, 0
+voice_rel_countdown:!byte 0, 0, 0
 voice_freq_hi:      !byte 0, 0, 0
 voice_freq_lo:      !byte 0, 0, 0
 voice_sweep_flags:  !byte 0, 0, 0
@@ -1425,6 +1525,7 @@ voice_sweep_tgt_hi: !byte 0, 0, 0
 voice_sweep_tgt_lo: !byte 0, 0, 0
 voice_sweep_frames: !byte 0, 0, 0
 voice_sweep_pos:    !byte 0, 0, 0
+voice_sweep_mult:   !byte 0, 0, 0
 voice_vib_phase:    !byte 0, 0, 0
 voice_vib_rate:     !byte 0, 0, 0
 voice_vib_depth:    !byte 0, 0, 0

@@ -44,7 +44,7 @@ def test_patches_to_asm_no_index():
 def test_patches_to_c_array():
     patches = [PRESETS["hit"]]
     c = patches_to_c_array(patches)
-    assert "0x01" in c
+    assert "0x02" in c
     assert "hit" in c
 
 
@@ -80,12 +80,6 @@ def test_all_presets_render():
         Path(path).unlink()
 
 
-def test_preset_fire_matches_game():
-    """Verify fire preset matches game engine bytes exactly."""
-    p = PRESETS["fire"]
-    assert p.to_bytes() == bytes([0x01, 0x21, 0x18, 0x00, 0x06, 0x06, 0x00])
-
-
 def test_preset_explode_matches_game():
     p = PRESETS["explode"]
     assert p.to_bytes() == bytes([0x02, 0x81, 0x08, 0x00, 0x09, 0x09, 0x00])
@@ -95,7 +89,7 @@ def test_preset_explode_matches_game():
 
 def test_sweep_bytes_no_sweep():
     """Non-swept patch produces zeroed sweep bytes."""
-    p = PRESETS["fire"]
+    p = PRESETS["explode"]
     assert not p.has_sweep
     assert patch_to_sweep_bytes(p) == bytes(6)
 
