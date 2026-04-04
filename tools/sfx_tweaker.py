@@ -116,17 +116,6 @@ class Slider:
 
 
 # ---------------------------------------------------------------------------
-# Game filter (same as cli._apply_game_filter)
-# ---------------------------------------------------------------------------
-
-def _apply_game_filter(patch: SfxPatch) -> None:
-    if patch.voice == 1 and patch.filter_mode == "off":
-        patch.filter_mode = "bandpass"
-        patch.filter_cutoff = 0x90
-        patch.filter_resonance = 0xF
-
-
-# ---------------------------------------------------------------------------
 # Audio rendering & playback
 # ---------------------------------------------------------------------------
 
@@ -136,7 +125,6 @@ _render_lock = threading.Lock()
 def render_to_sound(patch: SfxPatch) -> Optional[pygame.mixer.Sound]:
     """Render patch via pyresidfp and return a pygame Sound object."""
     p = copy.deepcopy(patch)
-    _apply_game_filter(p)
 
     try:
         samples = render_patch(p, sample_rate=SAMPLE_RATE, emulator="resid")

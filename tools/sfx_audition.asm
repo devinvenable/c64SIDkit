@@ -91,8 +91,9 @@ init:
         dex
         bpl -
 
-        ; Gameplay-default filter state (voice 1 low-pass routed)
-        jsr set_default_filter
+        ; Default: volume 15, no filter
+        lda #$0F
+        sta SID_MODE_VOL
 
         ; Clear voice state
         ldx #2
@@ -687,30 +688,33 @@ play_sfx:
 .done:
         rts
 
-; A=$06 index already set. Chooses gameplay default vs blaster override.
+; Per-preset filter routing — loads from tables indexed by SFX number in $06.
 apply_filter_for_sfx:
-        jsr set_default_filter
         ldy $06
-        lda sfx_blaster_flag,y
-        beq .af_done
-        lda #$F1            ; max resonance, route voice 1
-        sta SID_RES_FILT
-        lda sfx_blaster_cutoff,y
-        sta SID_FC_HI
-        lda #$2F            ; band-pass + volume 15
-        sta SID_MODE_VOL
-.af_done:
-        rts
-
-set_default_filter:
-        lda #$1F            ; low-pass + volume 15
-        sta SID_MODE_VOL
-        lda #$41            ; resonance $4, route voice 1
-        sta SID_RES_FILT
+        lda sfx_filter_mode,y
+        beq .af_no_filter
+        ; Filter enabled — set cutoff, resonance+routing, mode+vol
+        pha                     ; save mode byte
         lda #$00
         sta SID_FC_LO
-        lda #$20            ; low cutoff baseline
+        lda sfx_filter_cutoff,y
         sta SID_FC_HI
+        lda sfx_filter_resonance,y
+        asl
+        asl
+        asl
+        asl                     ; shift resonance to top nibble
+        ora sfx_filter_voice,y  ; OR in voice routing bits
+        sta SID_RES_FILT
+        pla                     ; restore mode byte
+        ora #$0F                ; add volume 15
+        sta SID_MODE_VOL
+        rts
+.af_no_filter:
+        lda #$0F                ; volume 15, no filter
+        sta SID_MODE_VOL
+        lda #$00
+        sta SID_RES_FILT
         rts
 
 clear_all_voices:
@@ -903,10 +907,11 @@ update_voice:
 .uv_deactivate:
         lda #$00
         sta voice_active,x
-        ; Restore gameplay-default filter when voice 1 ends
-        cpx #$00
-        bne .uv_done
-        jsr set_default_filter
+        ; Restore volume-only (no filter) when voice deactivates
+        lda #$0F
+        sta SID_MODE_VOL
+        lda #$00
+        sta SID_RES_FILT
 .uv_done:
         rts
 
@@ -1238,59 +1243,114 @@ sfx_layer_data:
   !byte $00, $00, $00, $00, $00, $00, $00  ; combo
   !byte $00, $00, $00, $00, $00, $00, $00  ; powerup_speed
 
-; Per-SFX filter metadata:
-; blaster variants use fire override (SIDRES=$F1, SIDVOL=$2F, cutoff from table).
-sfx_blaster_flag:
-  !byte 1  ; fire
-  !byte 0  ; explode
-  !byte 0  ; hit
-  !byte 0  ; weakpoint_hit
-  !byte 0  ; enemy_hit
-  !byte 0  ; march
-  !byte 0  ; kraft_alarm
-  !byte 0  ; game_over
-  !byte 0  ; death
-  !byte 0  ; warp
-  !byte 0  ; portal_ping
-  !byte 0  ; powerup
-  !byte 0  ; bounce
-  !byte 1  ; blaster_bolt
-  !byte 1  ; xwing_blaster
-  !byte 1  ; heavy_repeater
-  !byte 1  ; turbolaser
-  !byte 1  ; tie_cannon
-  !byte 0  ; shield_on_v3
-  !byte 1  ; ion_cannon
-  !byte 0  ; powerup_spread
-  !byte 0  ; powerup_shield
-  !byte 0  ; combo
-  !byte 0  ; powerup_speed
+; Per-SFX filter tables (indexed by SFX number, 1 byte each):
+; mode: 0=off, $10=lowpass, $20=bandpass, $40=highpass
+sfx_filter_mode:
+  !byte $10  ; fire (lowpass)
+  !byte $00  ; explode (off)
+  !byte $10  ; hit (lowpass)
+  !byte $00  ; weakpoint_hit (off)
+  !byte $00  ; enemy_hit (off)
+  !byte $00  ; march (off)
+  !byte $00  ; kraft_alarm (off)
+  !byte $00  ; game_over (off)
+  !byte $00  ; death (off)
+  !byte $00  ; warp (off)
+  !byte $00  ; portal_ping (off)
+  !byte $00  ; powerup (off)
+  !byte $00  ; bounce (off)
+  !byte $00  ; blaster_bolt (off)
+  !byte $00  ; xwing_blaster (off)
+  !byte $00  ; heavy_repeater (off)
+  !byte $00  ; turbolaser (off)
+  !byte $00  ; tie_cannon (off)
+  !byte $00  ; shield_on_v3 (off)
+  !byte $00  ; ion_cannon (off)
+  !byte $00  ; powerup_spread (off)
+  !byte $00  ; powerup_shield (off)
+  !byte $00  ; combo (off)
+  !byte $00  ; powerup_speed (off)
 
-sfx_blaster_cutoff:
-  !byte $90 ; fire
-  !byte $20 ; explode
-  !byte $20 ; hit
-  !byte $20 ; weakpoint_hit
-  !byte $20 ; enemy_hit
-  !byte $20 ; march
-  !byte $20 ; kraft_alarm
-  !byte $20 ; game_over
-  !byte $20 ; death
-  !byte $20 ; warp
-  !byte $20 ; portal_ping
-  !byte $20 ; powerup
-  !byte $20 ; bounce
-  !byte $90 ; blaster_bolt
-  !byte $90 ; xwing_blaster
-  !byte $90 ; heavy_repeater
-  !byte $90 ; turbolaser
-  !byte $90 ; tie_cannon
-  !byte $20 ; shield_on_v3
-  !byte $90 ; ion_cannon
-  !byte $20 ; powerup_spread
-  !byte $20 ; powerup_shield
-  !byte $20 ; combo
-  !byte $20 ; powerup_speed
+; cutoff: FC_HI value per preset
+sfx_filter_cutoff:
+  !byte $2F  ; fire
+  !byte $00  ; explode
+  !byte $90  ; hit
+  !byte $00  ; weakpoint_hit
+  !byte $00  ; enemy_hit
+  !byte $00  ; march
+  !byte $00  ; kraft_alarm
+  !byte $00  ; game_over
+  !byte $00  ; death
+  !byte $00  ; warp
+  !byte $00  ; portal_ping
+  !byte $00  ; powerup
+  !byte $00  ; bounce
+  !byte $00  ; blaster_bolt
+  !byte $00  ; xwing_blaster
+  !byte $00  ; heavy_repeater
+  !byte $00  ; turbolaser
+  !byte $00  ; tie_cannon
+  !byte $00  ; shield_on_v3
+  !byte $00  ; ion_cannon
+  !byte $00  ; powerup_spread
+  !byte $00  ; powerup_shield
+  !byte $00  ; combo
+  !byte $00  ; powerup_speed
+
+; resonance: top nibble of RES_FILT (0-15)
+sfx_filter_resonance:
+  !byte $05  ; fire
+  !byte $00  ; explode
+  !byte $0F  ; hit
+  !byte $00  ; weakpoint_hit
+  !byte $00  ; enemy_hit
+  !byte $00  ; march
+  !byte $00  ; kraft_alarm
+  !byte $00  ; game_over
+  !byte $00  ; death
+  !byte $00  ; warp
+  !byte $00  ; portal_ping
+  !byte $00  ; powerup
+  !byte $00  ; bounce
+  !byte $00  ; blaster_bolt
+  !byte $00  ; xwing_blaster
+  !byte $00  ; heavy_repeater
+  !byte $00  ; turbolaser
+  !byte $00  ; tie_cannon
+  !byte $00  ; shield_on_v3
+  !byte $00  ; ion_cannon
+  !byte $00  ; powerup_spread
+  !byte $00  ; powerup_shield
+  !byte $00  ; combo
+  !byte $00  ; powerup_speed
+
+; voice routing: bit mask (voice 1=bit0, 2=bit1, 3=bit2)
+sfx_filter_voice:
+  !byte $04  ; fire (voice 3)
+  !byte $00  ; explode
+  !byte $02  ; hit (voice 2)
+  !byte $00  ; weakpoint_hit
+  !byte $00  ; enemy_hit
+  !byte $00  ; march
+  !byte $00  ; kraft_alarm
+  !byte $00  ; game_over
+  !byte $00  ; death
+  !byte $00  ; warp
+  !byte $00  ; portal_ping
+  !byte $00  ; powerup
+  !byte $00  ; bounce
+  !byte $00  ; blaster_bolt
+  !byte $00  ; xwing_blaster
+  !byte $00  ; heavy_repeater
+  !byte $00  ; turbolaser
+  !byte $00  ; tie_cannon
+  !byte $00  ; shield_on_v3
+  !byte $00  ; ion_cannon
+  !byte $00  ; powerup_spread
+  !byte $00  ; powerup_shield
+  !byte $00  ; combo
+  !byte $00  ; powerup_speed
 
 ; =============================================================================
 ; SFX sweep table: 6 bytes per entry (target_hi, target_lo, frames, flags, vib_rate, vib_depth)

@@ -104,7 +104,10 @@ def render_patch_resid(
     attack_ms = ATTACK_MS[patch.attack]
     decay_ms = DECAY_RELEASE_MS[patch.decay]
     release_ms = DECAY_RELEASE_MS[patch.release]
-    frame_ms = patch.duration_frames * (1000.0 / 60.0)
+    # Render in per-frame chunks for sweep support
+    frame_duration_ms = 1000.0 / 50.0  # 20ms per frame (PAL 50Hz)
+
+    frame_ms = patch.duration_frames * frame_duration_ms
 
     is_loop = getattr(patch, "loop", False)
     if is_loop:
@@ -113,12 +116,9 @@ def render_patch_resid(
         total_ms = loop_seconds * 1000.0
         gate_off_ms = total_ms  # gate never turns off during render
     else:
-        gate_off_ms = attack_ms + decay_ms + 50.0
+        gate_off_ms = patch.duration_frames * frame_duration_ms
         total_ms = max(frame_ms, gate_off_ms + release_ms)
         total_ms = min(total_ms, 5000.0)
-
-    # Render in per-frame chunks for sweep support
-    frame_duration_ms = 1000.0 / 60.0  # ~16.67ms per frame
     n_frames = int(total_ms / frame_duration_ms) + 1
     gate_off_frame = int(gate_off_ms / frame_duration_ms)
     sweep_duration_frames = max(1, int(getattr(patch, "sweep_frames", 0) or patch.duration_frames))
