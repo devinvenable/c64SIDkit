@@ -30,6 +30,9 @@ def render_patch(
     chip_model: str = "8580",
 ) -> np.ndarray:
     """Render a patch to float32 audio samples."""
+    if emulator == "vice":
+        from sid_sfx.vice_emulator import render_patch_vice
+        return render_patch_vice(patch, sample_rate=sample_rate, chip_model=chip_model)
     if emulator == "resid":
         try:
             return render_patch_resid(patch, sample_rate=sample_rate, chip_model=chip_model)
@@ -37,7 +40,7 @@ def render_patch(
             # Keep preview/WAV export functional even when pyresidfp is unavailable.
             emulator = "svf"
     if emulator != "svf":
-        raise ValueError(f"Unsupported emulator {emulator!r}; expected 'resid' or 'svf'")
+        raise ValueError(f"Unsupported emulator {emulator!r}; expected 'resid', 'svf', or 'vice'")
 
     emu = SidVoiceEmulator(sample_rate=sample_rate)
 
