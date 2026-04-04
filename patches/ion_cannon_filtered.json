@@ -2,8 +2,8 @@
   "name": "ion_cannon_filtered",
   "voice": 1,
   "waveform": "PULSE",
-  "freq_hi": 49,
-  "freq_lo": 228,
+  "freq_hi": 39,
+  "freq_lo": 153,
   "attack": 0,
   "decay": 8,
   "sustain": 0,
@@ -11,11 +11,11 @@
   "pw_hi": 20,
   "duration_frames": 20,
   "sweep_target_hi": 1,
-  "sweep_target_lo": 255,
+  "sweep_target_lo": 149,
   "sweep_type": "exponential",
-  "description": "Deep narrow-pulse sweep \u2014 ion cannon boom (weight 1/8)",
   "filter_mode": "bandpass",
   "filter_cutoff": 144,
   "filter_resonance": 15,
-  "filter_cutoff_sweep": 0
+  "filter_cutoff_sweep": 0,
+  "description": "Ion cannon — deep pulse sweep, band-pass resonance (596Hz, matches original)"
 }

@@ -1,17 +1,21 @@
 {
-  "name": "heavy_repeater",
+  "name": "heavy_repeater_octdown",
   "voice": 1,
   "waveform": "SAWTOOTH",
-  "freq_hi": 83,
-  "freq_lo": 38,
+  "freq_hi": 15,
+  "freq_lo": 224,
   "attack": 0,
   "decay": 5,
   "sustain": 0,
   "release": 4,
   "pw_hi": 0,
   "duration_frames": 10,
-  "sweep_target_hi": 4,
-  "sweep_target_lo": 253,
+  "sweep_target_hi": 2,
+  "sweep_target_lo": 0,
   "sweep_type": "exponential",
-  "description": "Mid-range sawtooth sweep \u2014 heavy repeater (weight 2/8)"
+  "filter_mode": "bandpass",
+  "filter_cutoff": 144,
+  "filter_resonance": 15,
+  "filter_cutoff_sweep": 0,
+  "description": "Heavy repeater octave-down — sawtooth sweep (239Hz, half original freq)"
 }

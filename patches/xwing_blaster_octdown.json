@@ -1,17 +1,21 @@
 {
-  "name": "xwing_blaster",
+  "name": "xwing_blaster_octdown",
   "voice": 1,
   "waveform": "SAWTOOTH",
-  "freq_hi": 128,
-  "freq_lo": 0,
+  "freq_hi": 19,
+  "freq_lo": 12,
   "attack": 0,
   "decay": 4,
   "sustain": 0,
   "release": 3,
   "pw_hi": 0,
   "duration_frames": 6,
-  "sweep_target_hi": 9,
-  "sweep_target_lo": 251,
+  "sweep_target_hi": 2,
+  "sweep_target_lo": 98,
   "sweep_type": "exponential",
-  "description": "Quick bright blaster pew \u2014 X-wing style (weight 3/8)"
+  "filter_mode": "bandpass",
+  "filter_cutoff": 144,
+  "filter_resonance": 15,
+  "filter_cutoff_sweep": 0,
+  "description": "X-wing blaster octave-down — sawtooth sweep (287Hz, half original freq)"
 }
