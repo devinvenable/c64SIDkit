@@ -1,0 +1,14 @@
+{
+  "name": "ref_fanfare_saw",
+  "voice": 1,
+  "waveform": "SAWTOOTH",
+  "freq_hi": 24,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 8,
+  "sustain": 4,
+  "release": 6,
+  "pw_hi": 0,
+  "duration_frames": 8,
+  "description": "Assault victory fanfare \u2014 voice 1 sawtooth, first note ($18). Full arpeggio: $18\u2192$1C\u2192$20 over 24 frames (source: play_assault_victory_fanfare line 8815)"
+}

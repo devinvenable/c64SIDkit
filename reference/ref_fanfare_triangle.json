@@ -1,0 +1,14 @@
+{
+  "name": "ref_fanfare_triangle",
+  "voice": 3,
+  "waveform": "TRIANGLE",
+  "freq_hi": 12,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 8,
+  "sustain": 4,
+  "release": 8,
+  "pw_hi": 0,
+  "duration_frames": 8,
+  "description": "Assault victory fanfare \u2014 voice 3 triangle, first note ($0C). Full arpeggio: $0C\u2192$10\u2192$14 (source: play_assault_victory_fanfare line 8815)"
+}

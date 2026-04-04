@@ -1,0 +1,18 @@
+{
+  "name": "ref_enemy_hit",
+  "voice": 1,
+  "waveform": "NOISE",
+  "freq_hi": 6,
+  "freq_lo": 152,
+  "attack": 0,
+  "decay": 8,
+  "sustain": 0,
+  "release": 9,
+  "pw_hi": 0,
+  "duration_frames": 25,
+  "description": "Enemy hit feedback \u2014 noise burst with downward frequency sweep (source: play_enemy_hit_sfx line 8587, 25-frame sweep)",
+  "sweep_target_hi": 1,
+  "sweep_target_lo": 142,
+  "sweep_type": "linear",
+  "sweep_frames": 25
+}

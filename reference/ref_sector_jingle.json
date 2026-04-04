@@ -1,0 +1,14 @@
+{
+  "name": "ref_sector_jingle",
+  "voice": 1,
+  "waveform": "SAWTOOTH",
+  "freq_hi": 22,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 5,
+  "sustain": 1,
+  "release": 5,
+  "pw_hi": 0,
+  "duration_frames": 4,
+  "description": "Sector complete jingle \u2014 voice 1 sawtooth, first note ($16). Full arpeggio: $16\u2192$1A\u2192$20 over 12 frames (source: play_sector_complete_jingle line 8877)"
+}

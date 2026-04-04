@@ -1,0 +1,14 @@
+{
+  "name": "ref_death_noise",
+  "voice": 2,
+  "waveform": "NOISE",
+  "freq_hi": 20,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 10,
+  "sustain": 0,
+  "release": 12,
+  "pw_hi": 0,
+  "duration_frames": 40,
+  "description": "Death noise burst \u2014 high-frequency noise with slow decay, player destruction (source: play_death_sfx line 8752, voice 2 noise)"
+}

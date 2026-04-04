@@ -1,0 +1,17 @@
+{
+  "name": "ref_shield_on",
+  "voice": 3,
+  "waveform": "TRIANGLE",
+  "freq_hi": 39,
+  "freq_lo": 233,
+  "attack": 6,
+  "decay": 8,
+  "sustain": 10,
+  "release": 8,
+  "pw_hi": 0,
+  "duration_frames": 60,
+  "description": "Shield activate \u2014 descending triangle wobble with 1/4-depth vibrato, Star Trek force field (source: play_shield_on_sfx line 8672, flags=$64)",
+  "sweep_frames": 60,
+  "vibrato_rate": 5.0,
+  "vibrato_depth": 2554
+}

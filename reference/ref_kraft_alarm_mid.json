@@ -1,0 +1,14 @@
+{
+  "name": "ref_kraft_alarm_mid",
+  "voice": 3,
+  "waveform": "TRIANGLE",
+  "freq_hi": 18,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 2,
+  "sustain": 0,
+  "release": 8,
+  "pw_hi": 0,
+  "duration_frames": 5,
+  "description": "Kraftwerk self-destruct alarm phase 2/3 \u2014 rising triangle ping at FH=$12 (source: play_kraft_alarm line 8711, kraft_alarm_hi[1] line 10730)"
+}

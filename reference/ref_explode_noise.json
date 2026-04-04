@@ -1,0 +1,14 @@
+{
+  "name": "ref_explode_noise",
+  "voice": 2,
+  "waveform": "NOISE",
+  "freq_hi": 8,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 9,
+  "sustain": 0,
+  "release": 9,
+  "pw_hi": 0,
+  "duration_frames": 37,
+  "description": "Explosion noise boom \u2014 voice 2 noise burst with medium decay (source: play_explode_sfx line 8496, voice 2 noise)"
+}

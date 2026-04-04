@@ -1,0 +1,20 @@
+{
+  "name": "ref_powerup_spread",
+  "voice": 3,
+  "waveform": "PULSE",
+  "freq_hi": 3,
+  "freq_lo": 53,
+  "attack": 3,
+  "decay": 7,
+  "sustain": 4,
+  "release": 8,
+  "pw_hi": 16,
+  "duration_frames": 24,
+  "description": "Spread powerup \u2014 shimmering pulse drone rising from 821Hz, 6Hz vibrato (source: play_powerup_spread_sfx line 10421, flags=$19)",
+  "sweep_target_hi": 7,
+  "sweep_target_lo": 53,
+  "sweep_type": "linear",
+  "sweep_frames": 24,
+  "vibrato_rate": 4.2,
+  "vibrato_depth": 102
+}

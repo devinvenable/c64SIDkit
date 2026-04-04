@@ -1,0 +1,14 @@
+{
+  "name": "ref_march",
+  "voice": 3,
+  "waveform": "TRIANGLE",
+  "freq_hi": 5,
+  "freq_lo": 82,
+  "attack": 0,
+  "decay": 3,
+  "sustain": 0,
+  "release": 2,
+  "pw_hi": 0,
+  "duration_frames": 6,
+  "description": "March bass thud \u2014 short triangle thump for rhythmic footstep effect (source: play_march_sfx line 8619)"
+}

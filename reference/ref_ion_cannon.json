@@ -1,0 +1,21 @@
+{
+  "name": "ref_ion_cannon",
+  "voice": 1,
+  "waveform": "PULSE",
+  "freq_hi": 39,
+  "freq_lo": 153,
+  "attack": 0,
+  "decay": 8,
+  "sustain": 0,
+  "release": 9,
+  "pw_hi": 20,
+  "duration_frames": 20,
+  "description": "Ion cannon \u2014 pulse wave with deep downward sweep, narrow pulse width (source: play_fire_sfx line 8205, sfx_blaster_data[4] line 10739, weight 1/8)",
+  "sweep_target_hi": 1,
+  "sweep_target_lo": 149,
+  "sweep_type": "linear",
+  "sweep_frames": 20,
+  "filter_mode": "bandpass",
+  "filter_cutoff": 144,
+  "filter_resonance": 15
+}

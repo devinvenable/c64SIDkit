@@ -1,0 +1,20 @@
+{
+  "name": "ref_powerup_speed",
+  "voice": 3,
+  "waveform": "SAWTOOTH",
+  "freq_hi": 3,
+  "freq_lo": 155,
+  "attack": 1,
+  "decay": 10,
+  "sustain": 9,
+  "release": 11,
+  "pw_hi": 0,
+  "duration_frames": 16,
+  "description": "Speed powerup \u2014 buzzing sawtooth drone rising from 923Hz, 10Hz vibrato (source: play_powerup_speed_sfx line 10493, flags=$29)",
+  "sweep_target_hi": 5,
+  "sweep_target_lo": 155,
+  "sweep_type": "linear",
+  "sweep_frames": 16,
+  "vibrato_rate": 5.0,
+  "vibrato_depth": 115
+}

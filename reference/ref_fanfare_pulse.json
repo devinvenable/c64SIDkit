@@ -1,0 +1,14 @@
+{
+  "name": "ref_fanfare_pulse",
+  "voice": 2,
+  "waveform": "PULSE",
+  "freq_hi": 18,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 6,
+  "sustain": 5,
+  "release": 7,
+  "pw_hi": 7,
+  "duration_frames": 8,
+  "description": "Assault victory fanfare \u2014 voice 2 pulse, first note ($12). Full arpeggio: $12\u2192$16\u2192$1A (source: play_assault_victory_fanfare line 8815)"
+}

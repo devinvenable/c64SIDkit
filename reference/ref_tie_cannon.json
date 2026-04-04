@@ -1,0 +1,21 @@
+{
+  "name": "ref_tie_cannon",
+  "voice": 1,
+  "waveform": "SAWTOOTH",
+  "freq_hi": 31,
+  "freq_lo": 191,
+  "attack": 0,
+  "decay": 6,
+  "sustain": 0,
+  "release": 8,
+  "pw_hi": 0,
+  "duration_frames": 10,
+  "description": "TIE cannon \u2014 sawtooth sweep with brighter bandpass cutoff $B0 (source: play_fire_sfx line 8205, sfx_blaster_data[3] line 10738, weight 1/8)",
+  "sweep_target_hi": 3,
+  "sweep_target_lo": 247,
+  "sweep_type": "linear",
+  "sweep_frames": 10,
+  "filter_mode": "bandpass",
+  "filter_cutoff": 176,
+  "filter_resonance": 15
+}

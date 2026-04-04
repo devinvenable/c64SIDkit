@@ -1,0 +1,14 @@
+{
+  "name": "ref_explode_rumble",
+  "voice": 3,
+  "waveform": "TRIANGLE",
+  "freq_hi": 2,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 12,
+  "sustain": 0,
+  "release": 10,
+  "pw_hi": 0,
+  "duration_frames": 60,
+  "description": "Explosion sub-bass rumble \u2014 voice 3 low triangle with slow decay (source: play_explode_sfx line 8496, voice 3 triangle)"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "ref_gameover",
+  "voice": 1,
+  "waveform": "PULSE",
+  "freq_hi": 24,
+  "freq_lo": 0,
+  "attack": 2,
+  "decay": 2,
+  "sustain": 10,
+  "release": 8,
+  "pw_hi": 8,
+  "duration_frames": 40,
+  "description": "Game over \u2014 sustained pulse tone with slow attack and long release, somber descending feel (source: play_gameover_sfx line 8730)"
+}

@@ -1,0 +1,14 @@
+{
+  "name": "ref_warp_triangle",
+  "voice": 3,
+  "waveform": "TRIANGLE",
+  "freq_hi": 4,
+  "freq_lo": 0,
+  "attack": 2,
+  "decay": 8,
+  "sustain": 8,
+  "release": 8,
+  "pw_hi": 0,
+  "duration_frames": 60,
+  "description": "Warp rising triangle \u2014 slow-attack triangle sweep for hyperspace transition (source: play_warp_sfx line 8782, voice 3, v1_sfx_timer=60)"
+}

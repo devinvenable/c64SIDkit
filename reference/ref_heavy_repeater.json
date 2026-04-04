@@ -1,0 +1,21 @@
+{
+  "name": "ref_heavy_repeater",
+  "voice": 1,
+  "waveform": "SAWTOOTH",
+  "freq_hi": 31,
+  "freq_lo": 191,
+  "attack": 0,
+  "decay": 7,
+  "sustain": 0,
+  "release": 8,
+  "pw_hi": 0,
+  "duration_frames": 12,
+  "description": "Heavy repeater \u2014 deep sawtooth sweep with longer decay (source: play_fire_sfx line 8205, sfx_blaster_data[1] line 10736, weight 2/8)",
+  "sweep_target_hi": 3,
+  "sweep_target_lo": 44,
+  "sweep_type": "linear",
+  "sweep_frames": 12,
+  "filter_mode": "bandpass",
+  "filter_cutoff": 144,
+  "filter_resonance": 15
+}

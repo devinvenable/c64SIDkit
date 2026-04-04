@@ -1,0 +1,14 @@
+{
+  "name": "ref_portal_ping",
+  "voice": 1,
+  "waveform": "TRIANGLE",
+  "freq_hi": 32,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 2,
+  "sustain": 0,
+  "release": 0,
+  "pw_hi": 0,
+  "duration_frames": 4,
+  "description": "Portal proximity ping \u2014 very brief high triangle blip (source: play_portal_ping line 8906)"
+}

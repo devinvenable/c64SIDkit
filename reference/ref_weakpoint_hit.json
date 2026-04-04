@@ -1,0 +1,14 @@
+{
+  "name": "ref_weakpoint_hit",
+  "voice": 1,
+  "waveform": "PULSE",
+  "freq_hi": 9,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 7,
+  "sustain": 2,
+  "release": 7,
+  "pw_hi": 5,
+  "duration_frames": 12,
+  "description": "Weakpoint hit \u2014 deeper metallic pulse with sustain, no sweep (source: play_weakpoint_hit_sfx line 8564, PW=$0540)"
+}

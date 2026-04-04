@@ -1,0 +1,20 @@
+{
+  "name": "ref_player_hit",
+  "voice": 1,
+  "waveform": "PULSE",
+  "freq_hi": 8,
+  "freq_lo": 66,
+  "attack": 0,
+  "decay": 4,
+  "sustain": 0,
+  "release": 6,
+  "pw_hi": 2,
+  "duration_frames": 15,
+  "description": "Player hit \u2014 harsh pulse buzz with downward sweep and heavy 3/8-depth vibrato (source: play_hit_sfx line 8528, flags=$A3: rate=5Hz, depth=3/8)",
+  "sweep_target_hi": 0,
+  "sweep_target_lo": 101,
+  "sweep_type": "linear",
+  "sweep_frames": 15,
+  "vibrato_rate": 5.0,
+  "vibrato_depth": 793
+}

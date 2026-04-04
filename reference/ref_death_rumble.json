@@ -1,0 +1,14 @@
+{
+  "name": "ref_death_rumble",
+  "voice": 3,
+  "waveform": "TRIANGLE",
+  "freq_hi": 6,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 6,
+  "sustain": 0,
+  "release": 9,
+  "pw_hi": 0,
+  "duration_frames": 20,
+  "description": "Death low rumble \u2014 triangle sub-bass tail accompanying death noise (source: play_death_sfx line 8752, voice 3 triangle)"
+}

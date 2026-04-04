@@ -1,0 +1,14 @@
+{
+  "name": "ref_warp_sawtooth",
+  "voice": 2,
+  "waveform": "SAWTOOTH",
+  "freq_hi": 6,
+  "freq_lo": 0,
+  "attack": 1,
+  "decay": 10,
+  "sustain": 6,
+  "release": 6,
+  "pw_hi": 0,
+  "duration_frames": 50,
+  "description": "Warp harmonic layer \u2014 sawtooth overlay for warp effect richness (source: play_warp_sfx line 8782, voice 2)"
+}

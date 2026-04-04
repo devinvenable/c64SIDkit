@@ -1,0 +1,21 @@
+{
+  "name": "ref_turbolaser",
+  "voice": 1,
+  "waveform": "SAWTOOTH",
+  "freq_hi": 52,
+  "freq_lo": 203,
+  "attack": 0,
+  "decay": 7,
+  "sustain": 0,
+  "release": 9,
+  "pw_hi": 0,
+  "duration_frames": 18,
+  "description": "Turbolaser \u2014 high-pitched sawtooth with long downward sweep (source: play_fire_sfx line 8205, sfx_blaster_data[2] line 10737, weight 1/8)",
+  "sweep_target_hi": 2,
+  "sweep_target_lo": 28,
+  "sweep_type": "linear",
+  "sweep_frames": 18,
+  "filter_mode": "bandpass",
+  "filter_cutoff": 144,
+  "filter_resonance": 15
+}

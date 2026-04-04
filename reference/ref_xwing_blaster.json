@@ -1,0 +1,21 @@
+{
+  "name": "ref_xwing_blaster",
+  "voice": 1,
+  "waveform": "SAWTOOTH",
+  "freq_hi": 38,
+  "freq_lo": 24,
+  "attack": 0,
+  "decay": 6,
+  "sustain": 0,
+  "release": 8,
+  "pw_hi": 0,
+  "duration_frames": 10,
+  "description": "X-wing blaster \u2014 bright sawtooth with downward sweep, bandpass filtered (source: play_fire_sfx line 8205, sfx_blaster_data[0] line 10735, weight 3/8)",
+  "sweep_target_hi": 4,
+  "sweep_target_lo": 195,
+  "sweep_type": "linear",
+  "sweep_frames": 8,
+  "filter_mode": "bandpass",
+  "filter_cutoff": 144,
+  "filter_resonance": 15
+}
