@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Pygame SFX audition grid — click tiles to play presets, vote up/down."""
+"""Pygame SFX audition grid — click tiles to play presets via VICE, vote up/down."""
 
 from __future__ import annotations
 
 import copy
 import os
+import subprocess
 import sys
 import tempfile
+import threading
 from pathlib import Path
 
 import pygame
@@ -16,7 +18,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from sid_sfx.presets import PRESETS
 from sid_sfx.schema import SfxPatch, sid_freq_to_hz
-from sid_sfx.wav_export import render_patch_to_wav
+from sid_sfx.vice_emulator import _build_prg, _find_vice
 
 # ---------------------------------------------------------------------------
 # Constants
@@ -30,14 +32,17 @@ COLS = 6
 BG_COLOR = (64, 49, 141)          # C64-ish dark blue
 TILE_COLOR = (40, 30, 100)
 TILE_HOVER = (60, 50, 130)
-TILE_FLASH = (120, 100, 200)
+TILE_PLAYING = (100, 80, 180)
 TEXT_COLOR = (200, 200, 220)
 VOTE_UP_COLOR = (40, 160, 60)     # green tint
 VOTE_DOWN_COLOR = (180, 50, 50)   # red tint
 VOTE_BTN_SIZE = 24
 VOTE_BTN_PAD = 6
 
-FLASH_DURATION_MS = 200
+# VICE C64 boot takes ~4s before our program executes
+VICE_BOOT_S = 4.5
+# How long to play the SFX after boot
+PLAY_DURATION_S = 3.0
 
 # ---------------------------------------------------------------------------
 # Game filter (same as cli._apply_game_filter)
@@ -50,26 +55,71 @@ def _apply_game_filter(patch: SfxPatch) -> None:
         patch.filter_resonance = 0xF
 
 # ---------------------------------------------------------------------------
-# Pre-render all presets
+# VICE playback (runs in background thread)
 # ---------------------------------------------------------------------------
 
-def prerender_all(tmp_dir: str) -> dict[str, str]:
-    """Render every preset to WAV in tmp_dir. Returns {name: wav_path}."""
-    paths: dict[str, str] = {}
-    names = list(PRESETS.keys())
-    total = len(names)
+# Track the currently running VICE process so we can kill it on new click
+_vice_proc: subprocess.Popen | None = None
+_vice_lock = threading.Lock()
+_playing_name: str | None = None
 
-    for i, name in enumerate(names):
-        patch = copy.deepcopy(PRESETS[name])
-        _apply_game_filter(patch)
-        wav_path = os.path.join(tmp_dir, f"{name}.wav")
-        render_patch_to_wav(patch, wav_path, emulator="resid", chip_model="8580")
-        paths[name] = wav_path
-        pct = (i + 1) * 100 // total
-        print(f"\r  Rendering presets... {i+1}/{total} ({pct}%)", end="", flush=True)
 
-    print()
-    return paths
+def _play_via_vice(name: str, patch: SfxPatch):
+    """Build a .prg and launch VICE to play it through speakers."""
+    global _vice_proc, _playing_name
+
+    p = copy.deepcopy(patch)
+    _apply_game_filter(p)
+    prg_data = _build_prg(p)
+
+    # Kill any currently playing VICE instance
+    with _vice_lock:
+        if _vice_proc and _vice_proc.poll() is None:
+            _vice_proc.terminate()
+            try:
+                _vice_proc.wait(timeout=2)
+            except subprocess.TimeoutExpired:
+                _vice_proc.kill()
+        _playing_name = name
+
+    vice_bin = _find_vice()
+    PAL_CLOCK = 985248
+    total_cycles = int((VICE_BOOT_S + PLAY_DURATION_S) * PAL_CLOCK)
+
+    with tempfile.NamedTemporaryFile(suffix=".prg", delete=False) as f:
+        f.write(prg_data)
+        prg_path = f.name
+
+    try:
+        cmd = [
+            vice_bin, "-console",
+            "-sound",
+            "-sounddev", "pulse",
+            "-soundoutput", "1",
+            "-soundbufsize", "200",
+            "-soundvolume", "100",
+            "-sidmodel", "1",       # 8580
+            "-limitcycles", str(total_cycles),
+            "-autostart", prg_path,
+        ]
+
+        with _vice_lock:
+            _vice_proc = subprocess.Popen(
+                cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            )
+
+        _vice_proc.wait()
+    finally:
+        os.unlink(prg_path)
+        with _vice_lock:
+            if _playing_name == name:
+                _playing_name = None
+
+
+def play_preset(name: str, patch: SfxPatch):
+    """Launch VICE playback in a background thread."""
+    t = threading.Thread(target=_play_via_vice, args=(name, patch), daemon=True)
+    t.start()
 
 # ---------------------------------------------------------------------------
 # Tile layout helpers
@@ -103,11 +153,10 @@ def draw_tile(
     name: str,
     patch: SfxPatch,
     vote: int,
-    flash_until: int,
+    is_playing: bool,
     scroll_y: int,
     mouse_pos: tuple[int, int],
 ):
-    now = pygame.time.get_ticks()
     rect = tile_rect(index, scroll_y)
 
     # Skip tiles fully offscreen
@@ -115,8 +164,8 @@ def draw_tile(
         return
 
     # Base color
-    if now < flash_until:
-        color = TILE_FLASH
+    if is_playing:
+        color = TILE_PLAYING
     elif rect.collidepoint(mouse_pos):
         color = TILE_HOVER
     else:
@@ -129,7 +178,8 @@ def draw_tile(
         color = tuple(min(255, c + 30) for c in VOTE_DOWN_COLOR)
 
     pygame.draw.rect(surface, color, rect, border_radius=6)
-    pygame.draw.rect(surface, (100, 90, 160), rect, width=1, border_radius=6)
+    border_color = (180, 160, 255) if is_playing else (100, 90, 160)
+    pygame.draw.rect(surface, border_color, rect, width=2 if is_playing else 1, border_radius=6)
 
     # Preset name
     label = font.render(name, True, TEXT_COLOR)
@@ -144,6 +194,13 @@ def draw_tile(
     ix = rect.x + (rect.width - info_surf.get_width()) // 2
     iy = rect.y + 35
     surface.blit(info_surf, (ix, iy))
+
+    # Playing indicator
+    if is_playing:
+        play_surf = small_font.render(">> PLAYING <<", True, (255, 220, 100))
+        px = rect.x + (rect.width - play_surf.get_width()) // 2
+        py = rect.y + 55
+        surface.blit(play_surf, (px, py))
 
     # Vote buttons
     up_rect, down_rect = vote_btn_rects(rect)
@@ -165,7 +222,7 @@ def draw_tile(
         vtxt = "+1" if vote == 1 else "-1"
         vsurf = small_font.render(vtxt, True, (60, 200, 80) if vote == 1 else (200, 60, 60))
         vx = rect.x + (rect.width - vsurf.get_width()) // 2
-        vy = rect.y + 55
+        vy = rect.y + 75
         surface.blit(vsurf, (vx, vy))
 
 # ---------------------------------------------------------------------------
@@ -193,29 +250,24 @@ def print_votes(votes: dict[str, int]):
 # ---------------------------------------------------------------------------
 
 def main():
-    # Pre-render WAVs
-    tmp_dir = os.path.join(tempfile.gettempdir(), "sfx_audition")
-    os.makedirs(tmp_dir, exist_ok=True)
-    print("Pre-rendering all presets...")
-    wav_paths = prerender_all(tmp_dir)
+    # Verify VICE is available
+    try:
+        vice_bin = _find_vice()
+        print(f"Using VICE: {vice_bin}")
+    except RuntimeError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
 
-    # Init pygame
+    # Init pygame (no pre-rendering needed — VICE plays live)
     pygame.init()
-    pygame.mixer.init(frequency=44100, size=-16, channels=1, buffer=1024)
     screen = pygame.display.set_mode((WINDOW_W, WINDOW_H))
-    pygame.display.set_caption("SFX Audition Grid")
+    pygame.display.set_caption("SFX Audition Grid — VICE playback")
 
     font = pygame.font.SysFont("monospace", 16, bold=True)
     small_font = pygame.font.SysFont("monospace", 13)
 
     preset_names = list(PRESETS.keys())
     votes: dict[str, int] = {name: 0 for name in preset_names}
-    flash_until: dict[str, int] = {name: 0 for name in preset_names}
-
-    # Pre-load sounds
-    sounds: dict[str, pygame.mixer.Sound] = {}
-    for name, path in wav_paths.items():
-        sounds[name] = pygame.mixer.Sound(path)
 
     scroll_y = 0
     rows = (len(preset_names) + COLS - 1) // COLS
@@ -223,6 +275,8 @@ def main():
 
     clock = pygame.time.Clock()
     running = True
+
+    print(f"Ready — {len(preset_names)} presets. Click to play via VICE.")
 
     while running:
         mouse_pos = pygame.mouse.get_pos()
@@ -243,35 +297,41 @@ def main():
                         continue
                     up_rect, down_rect = vote_btn_rects(rect)
                     if up_rect.collidepoint(mx, my):
-                        # Toggle upvote
                         votes[name] = 0 if votes[name] == 1 else 1
                     elif down_rect.collidepoint(mx, my):
-                        # Toggle downvote
                         votes[name] = 0 if votes[name] == -1 else -1
                     else:
-                        # Play sound
-                        sounds[name].play()
-                        flash_until[name] = pygame.time.get_ticks() + FLASH_DURATION_MS
+                        # Play via VICE (kills any currently playing sound)
+                        play_preset(name, PRESETS[name])
                     break
 
         # Draw
         screen.fill(BG_COLOR)
 
         # Title bar
-        title = font.render(f"SFX Audition — {len(preset_names)} presets  (click=play, scroll, ESC=quit)", True, TEXT_COLOR)
+        title = font.render(
+            "SFX Audition — click=play via VICE, scroll, ESC=quit",
+            True, TEXT_COLOR,
+        )
         screen.blit(title, (PAD, PAD // 2 - 2))
 
         for i, name in enumerate(preset_names):
             draw_tile(
                 screen, font, small_font,
                 i, name, PRESETS[name],
-                votes[name], flash_until[name],
+                votes[name],
+                _playing_name == name,
                 scroll_y - 30,  # offset for title bar
                 mouse_pos,
             )
 
         pygame.display.flip()
         clock.tick(60)
+
+    # Kill any running VICE on exit
+    with _vice_lock:
+        if _vice_proc and _vice_proc.poll() is None:
+            _vice_proc.terminate()
 
     pygame.quit()
     print_votes(votes)

@@ -152,6 +152,7 @@ class SfxPatch:
     def has_vibrato(self) -> bool:
         return self.vibrato_rate > 0 and self.vibrato_depth > 0
 
+
     def to_bytes(self) -> bytes:
         """Encode as 7-byte SFX data (matches game engine format).
 

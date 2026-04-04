@@ -96,6 +96,18 @@ def render_patch_to_wav(
     if peak > 0:
         samples = samples / peak * 0.9  # Leave headroom
 
+    # Prepend a few ms of silence so reSID transients don't start at sample 0,
+    # then apply fade-in/out to prevent click/pop artifacts.
+    pre_silence = int(0.003 * sample_rate)  # 3ms lead-in
+    samples = np.concatenate([np.zeros(pre_silence, dtype=samples.dtype), samples])
+
+    fade_samples = min(int(0.005 * sample_rate), len(samples) // 4)  # 5ms or 1/4 length
+    if fade_samples > 0:
+        fade_in = np.linspace(0.0, 1.0, fade_samples, dtype=np.float32)
+        fade_out = np.linspace(1.0, 0.0, fade_samples, dtype=np.float32)
+        samples[:fade_samples] *= fade_in
+        samples[-fade_samples:] *= fade_out
+
     pcm = (samples * 32767).astype(np.int16)
 
     path = Path(path)
