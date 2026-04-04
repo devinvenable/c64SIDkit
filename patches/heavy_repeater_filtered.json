@@ -13,9 +13,9 @@
   "sweep_target_hi": 3,
   "sweep_target_lo": 0,
   "sweep_type": "exponential",
-  "filter_mode": "bandpass",
+  "filter_mode": "off",
   "filter_cutoff": 110,
   "filter_resonance": 15,
   "filter_cutoff_sweep": 0,
-  "description": "Heavy repeater — deep sawtooth sweep, band-pass resonance (477Hz, matches original range)"
+  "description": "Heavy repeater \u2014 deep sawtooth sweep, band-pass resonance (477Hz, matches original range)"
 }

@@ -13,9 +13,9 @@
   "sweep_target_hi": 1,
   "sweep_target_lo": 149,
   "sweep_type": "exponential",
-  "filter_mode": "bandpass",
+  "filter_mode": "off",
   "filter_cutoff": 144,
   "filter_resonance": 15,
   "filter_cutoff_sweep": 0,
-  "description": "Ion cannon — deep pulse sweep, band-pass resonance (596Hz, matches original)"
+  "description": "Ion cannon \u2014 deep pulse sweep, band-pass resonance (596Hz, matches original)"
 }

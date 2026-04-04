@@ -13,9 +13,9 @@
   "sweep_target_hi": 2,
   "sweep_target_lo": 98,
   "sweep_type": "exponential",
-  "filter_mode": "bandpass",
+  "filter_mode": "off",
   "filter_cutoff": 100,
   "filter_resonance": 15,
   "filter_cutoff_sweep": 0,
-  "description": "X-wing blaster octave-down — sawtooth sweep (287Hz, half original freq)"
+  "description": "X-wing blaster octave-down \u2014 sawtooth sweep (287Hz, half original freq)"
 }

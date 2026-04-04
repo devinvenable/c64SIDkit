@@ -463,8 +463,8 @@ def render_patch_vice(
             vice_bin,
             "-console",
             "-sound",
-            "-sounddev", "wav",
-            "-soundarg", str(wav_path),
+            "-soundrecdev", "wav",
+            "-soundrecarg", str(wav_path),
             "-soundrate", str(sample_rate),
             "-soundoutput", "1",        # mono
             "-soundbufsize", "1000",    # large buffer for warp mode

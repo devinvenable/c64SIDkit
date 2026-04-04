@@ -13,9 +13,9 @@
   "sweep_target_hi": 4,
   "sweep_target_lo": 0,
   "sweep_type": "exponential",
-  "filter_mode": "bandpass",
+  "filter_mode": "off",
   "filter_cutoff": 130,
   "filter_resonance": 15,
   "filter_cutoff_sweep": 0,
-  "description": "TIE cannon — pulse sweep, wider PW, band-pass resonance (477Hz, matches original)"
+  "description": "TIE cannon \u2014 pulse sweep, wider PW, band-pass resonance (477Hz, matches original)"
 }

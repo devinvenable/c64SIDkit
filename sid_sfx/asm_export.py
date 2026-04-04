@@ -207,7 +207,9 @@ def patch_to_game_blaster_bytes(patch: SfxPatch) -> bytes:
     Game format: filter_cutoff, CR, freq_hi, freq_lo, AD, SR, pw_hi
     (byte 0 is filter cutoff, NOT voice — differs from schema to_bytes())
     """
-    cutoff = patch.filter_cutoff if patch.filter_mode != "off" else 0x90
+    # Always export filter_cutoff — the game engine applies its own bandpass
+    # filter using this value, regardless of whether the patch has filter_mode on.
+    cutoff = patch.filter_cutoff
     return bytes([
         cutoff,
         patch.cr_byte,
@@ -219,15 +221,70 @@ def patch_to_game_blaster_bytes(patch: SfxPatch) -> bytes:
     ])
 
 
+def _vibrato_rate_index(rate_hz: float) -> int:
+    """Map vibrato rate in Hz to engine rate table index.
+
+    Engine rate table (frames per toggle at 50Hz PAL):
+      idx 0: 12 frames (~2.1 Hz)
+      idx 1:  6 frames (~4.2 Hz)
+      idx 2:  5 frames (~5.0 Hz)
+      idx 3:  3 frames (~8.3 Hz)
+    """
+    thresholds = [(3.0, 0), (4.5, 1), (6.5, 2)]
+    for cutoff, idx in thresholds:
+        if rate_hz < cutoff:
+            return idx
+    return 3
+
+
+def _vibrato_depth_index(depth: int, frequency: int) -> int:
+    """Map vibrato depth (SID freq units) to engine depth table index.
+
+    Engine depth table (fraction of current frequency):
+      idx 0: 1/8 freq  (12.5%)
+      idx 1: 1/4 freq  (25%)
+      idx 2: 3/8 freq  (37.5%)
+      idx 3: 1/2 freq  (50%)
+    """
+    if frequency <= 0:
+        return 0
+    frac = depth / frequency
+    if frac < 3 / 16:
+        return 0
+    if frac < 5 / 16:
+        return 1
+    if frac < 7 / 16:
+        return 2
+    return 3
+
+
 def patch_to_game_sweep_bytes(patch: SfxPatch) -> bytes:
     """Convert a patch to the game's sfx_blaster_sweep format (4 bytes).
 
     Game format: target_hi, target_lo, frames, flags
-    flags: bits 0-3=general, bits 4-5=vibrato rate index, bits 6-7=vibrato depth index
+    Flags byte:
+      bit 0:    loop vibrato (1=reload frames on expiry, 0=one-shot)
+      bits 1-3: unused
+      bits 4-5: vibrato rate index (into rate_table [12,6,5,3] frames/toggle)
+      bits 6-7: vibrato depth index (into depth_table [1/8, 1/4, 3/8, 1/2])
+    Engine checks (flags AND #$F0) — if nonzero, vibrato runs.
     """
-    flags = 0x03  # default: sweep + exponential
-    if patch.sweep_type == "linear":
-        flags = 0x01
+    flags = 0x00
+
+    # Bit 0: loop vibrato for sustained drones
+    is_loop = getattr(patch, "loop", False)
+    if is_loop:
+        flags |= 0x01
+
+    # Pack vibrato into flags bits 4-7
+    vibrato_rate = float(getattr(patch, "vibrato_rate", 0.0) or 0.0)
+    vibrato_depth = int(getattr(patch, "vibrato_depth", 0) or 0)
+    if vibrato_rate > 0 and vibrato_depth > 0:
+        rate_idx = _vibrato_rate_index(vibrato_rate)
+        depth_idx = _vibrato_depth_index(vibrato_depth, patch.frequency)
+        flags |= (rate_idx & 0x03) << 4
+        flags |= (depth_idx & 0x03) << 6
+
     frames = patch.sweep_frames if patch.sweep_frames > 0 else patch.duration_frames
     return bytes([
         patch.sweep_target_hi,
