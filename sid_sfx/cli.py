@@ -11,6 +11,7 @@ from sid_sfx.schema import SfxPatch, Waveform, hz_to_sid_freq, sid_freq_to_hz
 from sid_sfx.wav_export import render_patch_to_wav
 from sid_sfx.asm_export import patches_to_asm, patches_to_asm_tables, patches_to_game_tables, save_asm, save_asm_tables
 from sid_sfx.spectral_diff import generate_diff_report
+from sid_sfx.presets import PRESETS
 
 
 def cmd_preview(args):
@@ -134,6 +135,59 @@ def cmd_from_hex(args):
     print(f"Created {out} from hex data")
 
 
+def _apply_game_filter(patch: SfxPatch) -> None:
+    """Auto-apply game band-pass filter for voice 1 patches with filter_mode=off."""
+    if patch.voice == 1 and patch.filter_mode == "off":
+        patch.filter_mode = "bandpass"
+        patch.filter_cutoff = 0x90
+        patch.filter_resonance = 0xF
+
+
+def _render_preset(name: str, patch: SfxPatch, output_dir: str, emulator: str, chip: str, apply_filter: bool) -> str:
+    """Render a single preset to WAV and print info. Returns the output path."""
+    import copy
+    p = copy.deepcopy(patch)
+    if apply_filter:
+        _apply_game_filter(p)
+    out_path = str(Path(output_dir) / f"{name}.wav")
+    render_patch_to_wav(p, out_path, emulator=emulator, chip_model=chip)
+    freq_hz = sid_freq_to_hz(p.frequency)
+    emu_desc = emulator if emulator == "svf" else f"{emulator}/{chip}"
+    print(f"  {name:20s} -> {out_path}  ({freq_hz:.1f} Hz, {p.waveform.name}, {emu_desc})")
+    return out_path
+
+
+def cmd_play(args):
+    """Render built-in SFX presets to WAV for auditioning."""
+    if args.list:
+        print(f"Available presets ({len(PRESETS)}):")
+        for name, patch in PRESETS.items():
+            freq_hz = sid_freq_to_hz(patch.frequency)
+            print(f"  {name:20s}  v{patch.voice} {patch.waveform.name:10s} {freq_hz:7.1f} Hz  {patch.description}")
+        return
+
+    output_dir = args.output_dir or "patches"
+    apply_filter = not args.no_game_filter
+
+    if args.all:
+        print(f"Rendering all {len(PRESETS)} presets to {output_dir}/")
+        for name, patch in PRESETS.items():
+            _render_preset(name, patch, output_dir, args.emulator, args.chip, apply_filter)
+        print(f"Done — {len(PRESETS)} WAV files in {output_dir}/")
+        return
+
+    if not args.preset:
+        print("Error: specify a preset name, --list, or --all", file=sys.stderr)
+        sys.exit(1)
+
+    name = args.preset
+    if name not in PRESETS:
+        print(f"Error: unknown preset '{name}'. Use --list to see available presets.", file=sys.stderr)
+        sys.exit(1)
+
+    _render_preset(name, PRESETS[name], output_dir, args.emulator, args.chip, apply_filter)
+
+
 def cmd_spectral_diff(args):
     """Render with two backends and compare spectral similarity."""
     raw_backends = [item.strip() for item in args.backends.split(",") if item.strip()]
@@ -219,6 +273,35 @@ def main():
     p_hex.add_argument("-n", "--name", default="imported", help="Patch name")
     p_hex.add_argument("-o", "--output", help="Output JSON path")
     p_hex.set_defaults(func=cmd_from_hex)
+
+    p_play = sub.add_parser("play", help="Audition built-in SFX presets")
+    p_play.add_argument("preset", nargs="?", default=None, help="Preset name to render")
+    p_play.add_argument("--list", action="store_true", help="List all available preset names")
+    p_play.add_argument("--all", action="store_true", help="Render ALL presets to WAV")
+    p_play.add_argument(
+        "--emulator",
+        choices=["resid", "svf", "vice"],
+        default="resid",
+        help="Preview emulator backend",
+    )
+    p_play.add_argument(
+        "--chip",
+        choices=["6581", "8580"],
+        default="8580",
+        help="SID chip model",
+    )
+    p_play.add_argument(
+        "--no-game-filter",
+        action="store_true",
+        default=False,
+        help="Disable auto-applying game band-pass filter on voice 1 patches",
+    )
+    p_play.add_argument(
+        "-o", "--output-dir",
+        default=None,
+        help="Output directory for WAV files (default: patches/)",
+    )
+    p_play.set_defaults(func=cmd_play)
 
     p_spectral = sub.add_parser("spectral-diff", help="Compare WAV renders across two emulator backends")
     p_spectral.add_argument("input", help="Patch JSON file")

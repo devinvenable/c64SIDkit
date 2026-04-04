@@ -209,6 +209,14 @@ PRESETS = {
         vibrato_rate=4.0, vibrato_depth=80,
         description="Deep resonant hum — shield powerup collect",
     ),
+    "combo": SfxPatch(
+        name="combo",
+        voice=1, waveform=Waveform.SAWTOOTH,
+        freq_hi=0x10, freq_lo=0x00,
+        attack=0, decay=9, sustain=0, release=0,
+        pw_hi=0x00, duration_frames=10,
+        description="Kill combo sting — sawtooth blip",
+    ),
     "powerup_speed": SfxPatch(
         name="powerup_speed",
         voice=3, waveform=Waveform.SAWTOOTH,
