@@ -9,7 +9,7 @@ from pathlib import Path
 
 from sid_sfx.schema import SfxPatch, Waveform, hz_to_sid_freq, sid_freq_to_hz
 from sid_sfx.wav_export import render_patch_to_wav
-from sid_sfx.asm_export import patches_to_asm, patches_to_asm_tables, save_asm, save_asm_tables
+from sid_sfx.asm_export import patches_to_asm, patches_to_asm_tables, patches_to_game_tables, save_asm, save_asm_tables
 
 
 def cmd_preview(args):
@@ -82,6 +82,19 @@ def cmd_info(args):
         print(f"Desc:       {patch.description}")
 
 
+def cmd_game_export(args):
+    """Export blaster patches in exact game table format."""
+    patches = []
+    for path in args.inputs:
+        patches.append(SfxPatch.load_json(path))
+    output = patches_to_game_tables(patches)
+    if args.output:
+        Path(args.output).write_text(output + "\n")
+        print(f"Exported {len(patches)} blaster variants (game format) -> {args.output}")
+    else:
+        print(output)
+
+
 def cmd_from_hex(args):
     """Create a patch JSON from 7 hex bytes."""
     hex_str = args.hex.replace(" ", "").replace(",", "").replace("$", "").replace("0x", "")
@@ -129,6 +142,11 @@ def main():
     p_export.add_argument("-f", "--format", choices=["flat", "tables"], default="flat",
                           help="Export format: 'flat' (single table) or 'tables' (separate sfx_data + sfx_sweep)")
     p_export.set_defaults(func=cmd_export)
+
+    p_game = sub.add_parser("game-export", help="Export blaster patches in game table format")
+    p_game.add_argument("inputs", nargs="+", help="Blaster variant patch JSONs (indices 1+)")
+    p_game.add_argument("-o", "--output", help="Output .asm path")
+    p_game.set_defaults(func=cmd_game_export)
 
     p_info = sub.add_parser("info", help="Show patch details")
     p_info.add_argument("input", help="Patch JSON file")
