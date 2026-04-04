@@ -45,6 +45,7 @@ ACTIVE_COLOR = (100, 255, 120)
 WAVEFORM_NAMES = ["TRIANGLE", "SAWTOOTH", "PULSE", "NOISE"]
 WAVEFORM_VALUES = [Waveform.TRIANGLE, Waveform.SAWTOOTH, Waveform.PULSE, Waveform.NOISE]
 FILTER_MODES = ["off", "lowpass", "bandpass", "highpass"]
+LOOP_NAMES = ["ONE-SHOT", "SUSTAIN"]
 
 AUTO_REPEAT_INTERVAL = 1.5  # seconds
 
@@ -90,6 +91,8 @@ class Slider:
             return WAVEFORM_NAMES[self.value]
         elif self.fmt == "filter":
             return FILTER_MODES[self.value]
+        elif self.fmt == "loop":
+            return LOOP_NAMES[self.value]
         return str(self.value)
 
     def draw(self, surface: pygame.Surface, font: pygame.font.Font):
@@ -182,6 +185,9 @@ def build_patch_from_sliders(sliders: dict[str, Slider], preset_name: str) -> Sf
         filter_mode=FILTER_MODES[fm_idx],
         filter_cutoff=sliders["filter_cutoff"].value,
         filter_resonance=sliders["filter_res"].value,
+        loop=bool(sliders["loop"].value),
+        vibrato_rate=float(sliders["vib_rate"].value),
+        vibrato_depth=sliders["vib_depth"].value,
     )
 
 
@@ -202,6 +208,9 @@ def load_preset_to_sliders(patch: SfxPatch, sliders: dict[str, Slider]):
     sliders["filter_mode"].value = FILTER_MODES.index(patch.filter_mode)
     sliders["filter_cutoff"].value = patch.filter_cutoff
     sliders["filter_res"].value = patch.filter_resonance
+    sliders["loop"].value = 1 if patch.loop else 0
+    sliders["vib_rate"].value = int(patch.vibrato_rate)
+    sliders["vib_depth"].value = patch.vibrato_depth
 
 
 # ---------------------------------------------------------------------------
@@ -293,6 +302,9 @@ def create_sliders() -> dict[str, Slider]:
     sliders["filter_mode"] = Slider("Filter Mode", col2_x, y, sw, sh, 0, 3, 2, "filter"); y += dy
     sliders["filter_cutoff"] = Slider("Filter Cutoff", col2_x, y, sw, sh, 0, 255, 0x90, "hex"); y += dy
     sliders["filter_res"] = Slider("Filter Res", col2_x, y, sw, sh, 0, 15, 15); y += dy
+    sliders["loop"] = Slider("Mode", col2_x, y, sw, sh, 0, 1, 0, "loop"); y += dy
+    sliders["vib_rate"] = Slider("Vibrato Rate", col2_x, y, sw, sh, 0, 60, 0); y += dy
+    sliders["vib_depth"] = Slider("Vibrato Depth", col2_x, y, sw, sh, 0, 255, 0); y += dy
 
     return sliders
 

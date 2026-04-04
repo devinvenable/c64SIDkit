@@ -139,6 +139,12 @@ def patches_to_asm_tables(
     Emits:
         sfx_data[]: 7 bytes per entry, indexed by id*7
         sfx_sweep[]: 6 bytes per entry, indexed by id*6
+        sfx_duration[]: 1 byte per entry (gate-on frames at 50Hz PAL)
+        sfx_loop[]: 1 byte per entry (0=one-shot, 1=sustain)
+        sfx_filter_mode[]: 1 byte per entry ($00=off, $10=LP, $20=BP, $40=HP)
+        sfx_filter_cutoff[]: 1 byte per entry (FC_HI register)
+        sfx_filter_resonance[]: 1 byte per entry (resonance nibble 0-15)
+        sfx_filter_voice[]: 1 byte per entry (voice routing bit mask)
         exp_curve_lut[]: 16-byte exponential curve lookup (optional)
         blaster_weights[]: 8-byte weight-to-variant map (optional)
     """
@@ -167,6 +173,56 @@ def patches_to_asm_tables(
     lines.append("sfx_sweep:")
     for p in patches:
         lines.append(sweep_to_asm_line(p))
+    lines.append("")
+
+    # sfx_duration table: 1 byte per entry (gate-on frames at 50Hz PAL)
+    lines.append("; 1 byte per entry: gate-on duration in frames (50Hz PAL)")
+    lines.append("; For sustain SFX, duration is ignored — gate controlled by game events")
+    lines.append("sfx_duration:")
+    for p in patches:
+        lines.append(f"    .byte {p.duration_frames}  ; {p.name}")
+    lines.append("")
+
+    # sfx_loop table: 1 byte per entry (0=one-shot, 1=sustain)
+    lines.append("; 1 byte per entry: 0=one-shot (gate off after duration), 1=sustain (gate held by game)")
+    lines.append("sfx_loop:")
+    for p in patches:
+        loop_val = 1 if p.loop else 0
+        label = "sustain" if p.loop else "one-shot"
+        lines.append(f"    .byte {loop_val}  ; {p.name} ({label})")
+    lines.append("")
+
+    # sfx_filter_mode: 1 byte per entry ($00=off, $10=lowpass, $20=bandpass, $40=highpass)
+    filter_mode_map = {"off": 0x00, "lowpass": 0x10, "bandpass": 0x20, "highpass": 0x40}
+    lines.append("; 1 byte per entry: SID filter mode ($00=off, $10=LP, $20=BP, $40=HP)")
+    lines.append("sfx_filter_mode:")
+    for p in patches:
+        mode_byte = filter_mode_map.get(p.filter_mode, 0x00)
+        lines.append(f"    .byte ${mode_byte:02X}  ; {p.name} ({p.filter_mode})")
+    lines.append("")
+
+    # sfx_filter_cutoff: 1 byte per entry (FC_HI value)
+    lines.append("; 1 byte per entry: filter cutoff (FC_HI register)")
+    lines.append("sfx_filter_cutoff:")
+    for p in patches:
+        cutoff = p.filter_cutoff if p.filter_mode != "off" else 0
+        lines.append(f"    .byte ${cutoff:02X}  ; {p.name}")
+    lines.append("")
+
+    # sfx_filter_resonance: 1 byte per entry (resonance nibble 0-15)
+    lines.append("; 1 byte per entry: filter resonance (0-15, shifted to top nibble at runtime)")
+    lines.append("sfx_filter_resonance:")
+    for p in patches:
+        res = p.filter_resonance if p.filter_mode != "off" else 0
+        lines.append(f"    .byte ${res:02X}  ; {p.name}")
+    lines.append("")
+
+    # sfx_filter_voice: 1 byte per entry (voice routing bit mask)
+    lines.append("; 1 byte per entry: voice filter routing (bit0=v1, bit1=v2, bit2=v3)")
+    lines.append("sfx_filter_voice:")
+    for p in patches:
+        voice_bit = (1 << (p.voice - 1)) if p.filter_mode != "off" else 0
+        lines.append(f"    .byte ${voice_bit:02X}  ; {p.name} (voice {p.voice})")
     lines.append("")
 
     if include_curve_lut:
