@@ -15,6 +15,18 @@ from sid_sfx.asm_export import patches_to_asm, patches_to_asm_tables, save_asm, 
 def cmd_preview(args):
     """Render a patch JSON to WAV."""
     patch = SfxPatch.load_json(args.input)
+
+    # Game engine applies band-pass filter to voice 1 blasters.
+    # Warn if a voice 1 patch has no filter — preview won't match gameplay.
+    if patch.voice == 1 and patch.filter_mode == "off" and not args.no_game_filter:
+        print(f"WARNING: Voice 1 patch '{patch.name}' has filter_mode=off.")
+        print("  Game applies band-pass (res=$F, cutoff=$90) to all voice 1 SFX.")
+        print("  Preview will NOT match gameplay. Add filter fields or use --no-game-filter to suppress.")
+        print("  Auto-applying game filter for accurate preview.")
+        patch.filter_mode = "bandpass"
+        patch.filter_cutoff = 0x90
+        patch.filter_resonance = 0xF
+
     out = args.output or args.input.replace(".json", ".wav")
     render_patch_to_wav(
         patch,
@@ -101,6 +113,12 @@ def main():
         choices=["6581", "8580"],
         default="8580",
         help="SID chip model (used by reSID emulator)",
+    )
+    p_preview.add_argument(
+        "--no-game-filter",
+        action="store_true",
+        default=False,
+        help="Disable auto-applying game band-pass filter on voice 1 patches",
     )
     p_preview.set_defaults(func=cmd_preview)
 
