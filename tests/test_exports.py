@@ -14,6 +14,7 @@ from sid_sfx.asm_export import (
     patches_to_asm_tables, patch_to_sweep_bytes, EXP_CURVE_LUT, BLASTER_WEIGHTS,
 )
 from sid_sfx.wav_export import render_patch_to_wav
+from sid_sfx.spectral_diff import spectral_similarity, generate_diff_report
 from sid_sfx.presets import PRESETS
 
 
@@ -268,3 +269,48 @@ def test_render_patch_supports_svf_fallback(monkeypatch):
 def test_render_patch_rejects_unknown_emulator():
     with pytest.raises(ValueError, match="Unsupported emulator"):
         wav_export.render_patch(PRESETS["fire"], emulator="unknown")
+
+
+def test_spectral_similarity_identical_arrays():
+    sr = 44100
+    t = np.linspace(0.0, 0.5, int(0.5 * sr), endpoint=False)
+    tone = (0.4 * np.sin(2.0 * np.pi * 440.0 * t)).astype(np.float32)
+
+    metrics = spectral_similarity((tone, sr), (tone.copy(), sr))
+
+    assert metrics["spectral_correlation"] > 0.99
+    assert metrics["rms_envelope_diff_db"] < 0.01
+    assert metrics["peak_freq_alignment_pct"] > 99.0
+    assert metrics["overall_similarity_pct"] > 99.0
+
+
+def test_generate_diff_report_includes_metrics_and_paths(monkeypatch, tmp_path):
+    patch_path = tmp_path / "test_patch.json"
+    PRESETS["fire"].save_json(patch_path)
+
+    def fake_render_patch_to_wav(patch, path, sample_rate=44100, emulator="resid", chip_model="8580"):
+        assert patch.name == "fire"
+        assert sample_rate == 44100
+        assert chip_model == "8580"
+        with wave.open(str(path), "wb") as wf:
+            wf.setnchannels(1)
+            wf.setsampwidth(2)
+            wf.setframerate(sample_rate)
+            wf.writeframes(np.zeros(2048, dtype=np.int16).tobytes())
+
+    monkeypatch.setattr("sid_sfx.spectral_diff.render_patch_to_wav", fake_render_patch_to_wav)
+
+    report = generate_diff_report(
+        patch_path=patch_path,
+        backend_a="resid",
+        backend_b="svf",
+        output_dir=tmp_path,
+    )
+
+    assert "Comparing fire: resid vs svf" in report
+    assert "Spectral correlation:" in report
+    assert "RMS envelope diff:" in report
+    assert "Peak freq alignment:" in report
+    assert "Overall similarity:" in report
+    assert str(tmp_path / "test_patch_resid.wav") in report
+    assert str(tmp_path / "test_patch_svf.wav") in report

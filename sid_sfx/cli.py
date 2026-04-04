@@ -10,6 +10,7 @@ from pathlib import Path
 from sid_sfx.schema import SfxPatch, Waveform, hz_to_sid_freq, sid_freq_to_hz
 from sid_sfx.wav_export import render_patch_to_wav
 from sid_sfx.asm_export import patches_to_asm, patches_to_asm_tables, patches_to_game_tables, save_asm, save_asm_tables
+from sid_sfx.spectral_diff import generate_diff_report
 
 
 def cmd_preview(args):
@@ -105,6 +106,23 @@ def cmd_from_hex(args):
     print(f"Created {out} from hex data")
 
 
+def cmd_spectral_diff(args):
+    """Render with two backends and compare spectral similarity."""
+    raw_backends = [item.strip() for item in args.backends.split(",") if item.strip()]
+    if len(raw_backends) != 2:
+        raise ValueError("--backends must contain exactly two comma-separated backends, e.g. resid,svf")
+    backend_a, backend_b = raw_backends
+
+    report = generate_diff_report(
+        patch_path=args.input,
+        backend_a=backend_a,
+        backend_b=backend_b,
+        output_dir=args.output_dir,
+        chip_model=args.chip,
+    )
+    print(report)
+
+
 def main():
     parser = argparse.ArgumentParser(
         prog="sid-sfx",
@@ -158,11 +176,35 @@ def main():
     p_hex.add_argument("-o", "--output", help="Output JSON path")
     p_hex.set_defaults(func=cmd_from_hex)
 
+    p_spectral = sub.add_parser("spectral-diff", help="Compare WAV renders across two emulator backends")
+    p_spectral.add_argument("input", help="Patch JSON file")
+    p_spectral.add_argument(
+        "--backends",
+        default="resid,svf",
+        help="Comma-separated backend names to compare (e.g. resid,svf)",
+    )
+    p_spectral.add_argument(
+        "--chip",
+        choices=["6581", "8580"],
+        default="8580",
+        help="SID chip model (used by reSID backend)",
+    )
+    p_spectral.add_argument(
+        "-o",
+        "--output-dir",
+        default=None,
+        help="Directory where rendered comparison WAV files will be written",
+    )
+    p_spectral.set_defaults(func=cmd_spectral_diff)
+
     args = parser.parse_args()
     if not args.command:
         parser.print_help()
         sys.exit(1)
-    args.func(args)
+    try:
+        args.func(args)
+    except ValueError as exc:
+        parser.error(str(exc))
 
 
 if __name__ == "__main__":
