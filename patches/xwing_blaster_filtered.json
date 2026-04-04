@@ -14,7 +14,7 @@
   "sweep_target_lo": 195,
   "sweep_type": "exponential",
   "filter_mode": "bandpass",
-  "filter_cutoff": 144,
+  "filter_cutoff": 120,
   "filter_resonance": 15,
   "filter_cutoff_sweep": 0,
   "description": "X-wing blaster filtered — sawtooth sweep, band-pass resonance (573Hz, matches original)"
