@@ -1,5 +1,5 @@
 {
-  "name": "powerup_shield",
+  "name": "powerup_shield_boost",
   "voice": 3,
   "waveform": "PULSE",
   "freq_hi": 18,
@@ -15,12 +15,12 @@
   "sweep_frames": 255,
   "sweep_type": "exponential",
   "vibrato_rate": 9.0,
-  "vibrato_depth": 596,
+  "vibrato_depth": 1192,
   "filter_mode": "off",
   "filter_cutoff": 144,
   "filter_resonance": 15,
   "filter_cutoff_sweep": 0,
   "loop": true,
   "loop_preview_seconds": 8.0,
-  "description": "Medium-narrow pulse drone at 280Hz, 9Hz vibrato \u2014 deep charged-up warble"
+  "description": "Medium-narrow pulse drone at 280Hz, 9Hz vibrato \u2014 deep charged-up warble [BOOSTED: depth_idx=1, 1/4 freq deviation]"
 }
