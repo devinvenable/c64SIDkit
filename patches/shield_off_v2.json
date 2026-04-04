@@ -1,0 +1,18 @@
+{
+  "name": "shield_off_v2",
+  "voice": 3,
+  "waveform": "TRIANGLE",
+  "freq_hi": 35,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 6,
+  "sustain": 8,
+  "release": 6,
+  "pw_hi": 0,
+  "duration_frames": 18,
+  "sweep_target_hi": 8,
+  "sweep_target_lo": 0,
+  "sweep_frames": 16,
+  "sweep_type": "exponential",
+  "description": "Shield deactivate — TOS-style descending warble, triangle sweep down"
+}

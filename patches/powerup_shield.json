@@ -9,7 +9,7 @@
   "sustain": 13,
   "release": 6,
   "pw_hi": 4,
-  "duration_frames": 45,
+  "duration_frames": 255,
   "sweep_target_hi": 16,
   "sweep_target_lo": 161,
   "sweep_frames": 40,

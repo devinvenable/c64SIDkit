@@ -1,0 +1,14 @@
+{
+  "name": "spread_fire_v2",
+  "voice": 3,
+  "waveform": "PULSE",
+  "freq_hi": 8,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 3,
+  "sustain": 4,
+  "release": 2,
+  "pw_hi": 1,
+  "duration_frames": 6,
+  "description": "Spread shot fire — low buzzy pulse, rapid machine-gun character"
+}

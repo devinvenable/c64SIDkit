@@ -1,0 +1,21 @@
+{
+  "name": "heavy_repeater_filtered",
+  "voice": 1,
+  "waveform": "SAWTOOTH",
+  "freq_hi": 40,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 7,
+  "sustain": 0,
+  "release": 5,
+  "pw_hi": 0,
+  "duration_frames": 12,
+  "sweep_target_hi": 4,
+  "sweep_target_lo": 0,
+  "sweep_type": "exponential",
+  "filter_mode": "bandpass",
+  "filter_cutoff": 110,
+  "filter_resonance": 15,
+  "filter_cutoff_sweep": 0,
+  "description": "Heavy repeater — deep sawtooth sweep, long decay, band-pass resonance"
+}

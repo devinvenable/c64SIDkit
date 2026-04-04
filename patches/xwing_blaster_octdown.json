@@ -1,0 +1,17 @@
+{
+  "name": "xwing_blaster",
+  "voice": 1,
+  "waveform": "SAWTOOTH",
+  "freq_hi": 128,
+  "freq_lo": 0,
+  "attack": 0,
+  "decay": 4,
+  "sustain": 0,
+  "release": 3,
+  "pw_hi": 0,
+  "duration_frames": 6,
+  "sweep_target_hi": 9,
+  "sweep_target_lo": 251,
+  "sweep_type": "exponential",
+  "description": "Quick bright blaster pew \u2014 X-wing style (weight 3/8)"
+}

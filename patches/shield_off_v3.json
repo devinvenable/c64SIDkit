@@ -1,0 +1,18 @@
+{
+  "name": "shield_off_v3",
+  "voice": 3,
+  "waveform": "TRIANGLE",
+  "freq_hi": 20,
+  "freq_lo": 0,
+  "attack": 4,
+  "decay": 9,
+  "sustain": 3,
+  "release": 8,
+  "pw_hi": 0,
+  "duration_frames": 24,
+  "sweep_target_hi": 3,
+  "sweep_target_lo": 0,
+  "sweep_frames": 22,
+  "sweep_type": "exponential",
+  "description": "Shield deactivate — dark power-down drone, slow attack into deep descending sweep"
+}

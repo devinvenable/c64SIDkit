@@ -1,0 +1,14 @@
+{
+  "name": "spread_fire_v3",
+  "voice": 3,
+  "waveform": "PULSE",
+  "freq_hi": 1,
+  "freq_lo": 80,
+  "attack": 0,
+  "decay": 1,
+  "sustain": 12,
+  "release": 4,
+  "pw_hi": 8,
+  "duration_frames": 10,
+  "description": "Spread shot fire — ultra-low pulse, individual cycles audible as rapid pops"
+}

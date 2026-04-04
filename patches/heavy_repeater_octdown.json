@@ -1,0 +1,17 @@
+{
+  "name": "heavy_repeater",
+  "voice": 1,
+  "waveform": "SAWTOOTH",
+  "freq_hi": 83,
+  "freq_lo": 38,
+  "attack": 0,
+  "decay": 5,
+  "sustain": 0,
+  "release": 4,
+  "pw_hi": 0,
+  "duration_frames": 10,
+  "sweep_target_hi": 4,
+  "sweep_target_lo": 253,
+  "sweep_type": "exponential",
+  "description": "Mid-range sawtooth sweep \u2014 heavy repeater (weight 2/8)"
+}
