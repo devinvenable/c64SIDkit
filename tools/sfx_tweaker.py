@@ -238,6 +238,10 @@ def format_save_output(patch: SfxPatch) -> str:
         lines.append(f'        sweep_frames={patch.sweep_frames}, sweep_type="exponential",')
     if patch.filter_mode != "off":
         lines.append(f'        filter_cutoff=0x{patch.filter_cutoff:02X}, filter_resonance=0x{patch.filter_resonance:X}, filter_mode="{patch.filter_mode}",')
+    if patch.vibrato_rate > 0 or patch.vibrato_depth > 0:
+        lines.append(f"        vibrato_rate={patch.vibrato_rate}, vibrato_depth={patch.vibrato_depth},")
+    if patch.loop:
+        lines.append(f"        loop=True,")
     lines.append("    ),")
 
     # Raw hex
@@ -262,6 +266,10 @@ def format_save_output(patch: SfxPatch) -> str:
         lines.append(f"# Sweep → {target_hz:.0f}Hz in {patch.sweep_frames}fr")
     if patch.filter_mode != "off":
         lines.append(f"# Filter: {patch.filter_mode} cutoff=${patch.filter_cutoff:02X} res={patch.filter_resonance}")
+    if patch.vibrato_rate > 0 or patch.vibrato_depth > 0:
+        lines.append(f"# Vibrato: rate={patch.vibrato_rate}Hz depth={patch.vibrato_depth}")
+    if patch.loop:
+        lines.append("# Mode: SUSTAIN (loop)")
     lines.append("=" * 60)
 
     return "\n".join(lines)
@@ -442,9 +450,16 @@ def main():
             if current_sound:
                 current_sound.stop()
             needs_render = True
-        elif is_sustain:
-            # Sustain active — keep looping, ignore slider changes
-            needs_render = False
+        elif is_sustain and needs_render:
+            # Sustain active — re-render and restart loop on parameter change
+            patch = build_patch_from_sliders(sliders, current_preset)
+            snd = render_to_sound(patch)
+            if snd:
+                if current_sound:
+                    current_sound.stop()
+                current_sound = snd
+                current_sound.play(loops=-1)
+                needs_render = False
         elif auto_repeat and (now - last_play_time) >= AUTO_REPEAT_INTERVAL:
             # One-shot: retrigger periodically
             if needs_render or current_sound is None:
