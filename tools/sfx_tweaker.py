@@ -6,6 +6,7 @@ from __future__ import annotations
 import copy
 import io
 import os
+import random
 import sys
 import time
 import threading
@@ -191,6 +192,12 @@ def build_patch_from_sliders(sliders: dict[str, Slider], preset_name: str) -> Sf
     )
 
 
+def randomize_sliders(sliders: dict[str, Slider]):
+    """Set every slider to a random value within its min..max range."""
+    for s in sliders.values():
+        s.value = random.randint(s.min_val, s.max_val)
+
+
 def load_preset_to_sliders(patch: SfxPatch, sliders: dict[str, Slider]):
     sliders["voice"].value = patch.voice
     sliders["waveform"].value = WAVEFORM_VALUES.index(patch.waveform)
@@ -359,7 +366,7 @@ def main():
     running = True
 
     print(f"SFX Tweaker ready — preset: {current_preset}")
-    print("  SPACE=toggle repeat  P=play once  S=save  L/R arrows=cycle presets  ESC=quit")
+    print("  SPACE=toggle repeat  P=play once  S=save  R=random  L/R arrows=cycle presets  ESC=quit")
 
     while running:
         now = time.time()
@@ -398,6 +405,11 @@ def main():
                     last_save_msg = f"Saved: {current_preset} → {patch_path.name}"
                     last_save_time = now
                     status_msg = last_save_msg
+
+                elif event.key == pygame.K_r:
+                    randomize_sliders(sliders)
+                    needs_render = True
+                    status_msg = "Randomized!"
 
                 elif event.key in (pygame.K_l, pygame.K_RIGHT):
                     preset_idx = (preset_idx + 1) % len(preset_names)
@@ -546,7 +558,7 @@ def main():
                          pygame.Rect(0, bar_y, WINDOW_W, 50))
 
         # Left: controls help
-        help_text = "SPACE=repeat  P=play  S=save  L/R=preset  ESC=quit"
+        help_text = "SPACE=repeat  P=play  S=save  R=random  L/R=preset  ESC=quit"
         help_surf = small_font.render(help_text, True, LABEL_COLOR)
         screen.blit(help_surf, (10, bar_y + 8))
 
