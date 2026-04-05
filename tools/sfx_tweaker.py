@@ -365,8 +365,12 @@ def main():
     clock = pygame.time.Clock()
     running = True
 
+    text_input_active = False
+    text_input_buf = ""
+    text_input_prompt = ""
+
     print(f"SFX Tweaker ready — preset: {current_preset}")
-    print("  SPACE=toggle repeat  P=play once  S=save  R=random  L/R arrows=cycle presets  ESC=quit")
+    print("  SPACE=toggle repeat  P=play once  S=save  R=random  N=new  L/R arrows=cycle presets  ESC=quit")
 
     while running:
         now = time.time()
@@ -376,6 +380,43 @@ def main():
                 running = False
 
             elif event.type == pygame.KEYDOWN:
+                # --- Text input mode ---
+                if text_input_active:
+                    if event.key == pygame.K_RETURN:
+                        name = text_input_buf.strip()
+                        if name:
+                            # Copy current sliders into a new preset
+                            new_patch = build_patch_from_sliders(sliders, name)
+                            PRESETS[name] = new_patch
+                            preset_names.append(name)
+                            preset_idx = len(preset_names) - 1
+                            current_preset = name
+                            pygame.display.set_caption(f"SFX Tweaker — {current_preset}")
+                            # Auto-save JSON
+                            patch_path = Path(__file__).resolve().parent.parent / "patches" / f"{name}.json"
+                            new_patch.save_json(patch_path)
+                            status_msg = f"Created: {name}"
+                            last_save_msg = status_msg
+                            last_save_time = now
+                            needs_render = True
+                        else:
+                            status_msg = "New preset cancelled"
+                        text_input_active = False
+                        text_input_buf = ""
+                        continue
+                    elif event.key == pygame.K_ESCAPE:
+                        text_input_active = False
+                        text_input_buf = ""
+                        status_msg = "New preset cancelled"
+                        continue
+                    elif event.key == pygame.K_BACKSPACE:
+                        text_input_buf = text_input_buf[:-1]
+                        continue
+                    elif event.unicode and event.unicode.isprintable():
+                        text_input_buf += event.unicode
+                        continue
+                    continue
+
                 if event.key == pygame.K_ESCAPE:
                     running = False
 
@@ -426,6 +467,12 @@ def main():
                     pygame.display.set_caption(f"SFX Tweaker — {current_preset}")
                     needs_render = True
                     status_msg = f"Loaded: {current_preset}"
+
+                elif event.key == pygame.K_n:
+                    text_input_active = True
+                    text_input_buf = ""
+                    text_input_prompt = "New preset name: "
+                    status_msg = "Type name, ENTER to confirm, ESC to cancel"
 
             elif event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
                 mx, my = event.pos
@@ -552,13 +599,33 @@ def main():
             screen.blit(surf, (panel_x, py))
             py += 18
 
+        # --- Text input overlay ---
+        if text_input_active:
+            overlay = pygame.Surface((WINDOW_W, WINDOW_H), pygame.SRCALPHA)
+            overlay.fill((0, 0, 0, 140))
+            screen.blit(overlay, (0, 0))
+
+            box_w, box_h = 440, 80
+            box_x = (WINDOW_W - box_w) // 2
+            box_y = (WINDOW_H - box_h) // 2
+            pygame.draw.rect(screen, PANEL_COLOR, pygame.Rect(box_x, box_y, box_w, box_h), border_radius=8)
+            pygame.draw.rect(screen, ACCENT_COLOR, pygame.Rect(box_x, box_y, box_w, box_h), 2, border_radius=8)
+
+            prompt_surf = font.render(text_input_prompt, True, LABEL_COLOR)
+            screen.blit(prompt_surf, (box_x + 16, box_y + 14))
+
+            # Text field with cursor
+            cursor = "_" if int(now * 2) % 2 == 0 else " "
+            input_surf = font.render(text_input_buf + cursor, True, STATUS_COLOR)
+            screen.blit(input_surf, (box_x + 16, box_y + 42))
+
         # --- Status bar ---
         bar_y = WINDOW_H - 50
         pygame.draw.rect(screen, PANEL_COLOR,
                          pygame.Rect(0, bar_y, WINDOW_W, 50))
 
         # Left: controls help
-        help_text = "SPACE=repeat  P=play  S=save  R=random  L/R=preset  ESC=quit"
+        help_text = "SPACE=repeat  P=play  S=save  R=random  N=new  L/R=preset  ESC=quit"
         help_surf = small_font.render(help_text, True, LABEL_COLOR)
         screen.blit(help_surf, (10, bar_y + 8))
 
