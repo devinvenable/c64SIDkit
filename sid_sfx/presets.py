@@ -48,10 +48,14 @@ PRESETS = {
     "enemy_hit": SfxPatch(
         name="enemy_hit",
         voice=1, waveform=Waveform.NOISE,
-        freq_hi=0x10, freq_lo=0x00,
-        attack=0, decay=2, sustain=0, release=0,
-        pw_hi=0x00, duration_frames=6,
-        description="Very short noise burst — enemy takes damage",
+        freq_hi=0x21, freq_lo=0x61,
+        attack=6, decay=9, sustain=0, release=0,
+        pw_hi=0x2A, duration_frames=38,
+        sweep_target_hi=0xF0, sweep_target_lo=0x77,
+        sweep_frames=27, sweep_type="exponential",
+        filter_cutoff=0x0A, filter_resonance=0x6, filter_mode="lowpass",
+        vibrato_rate=31.0, vibrato_depth=200,
+        description="NOISE @ 502Hz sweep to 3615Hz — enemy takes damage",
     ),
     "march": SfxPatch(
         name="march",
