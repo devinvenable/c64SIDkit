@@ -392,7 +392,10 @@ def main():
                     patch = build_patch_from_sliders(sliders, current_preset)
                     output = format_save_output(patch)
                     print(output)
-                    last_save_msg = f"Saved: {current_preset}"
+                    # Auto-save JSON patch file
+                    patch_path = Path(__file__).resolve().parent.parent / "patches" / f"{current_preset}.json"
+                    patch.save_json(patch_path)
+                    last_save_msg = f"Saved: {current_preset} → {patch_path.name}"
                     last_save_time = now
                     status_msg = last_save_msg
 
