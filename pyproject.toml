@@ -15,6 +15,7 @@ dependencies = [
 
 [project.optional-dependencies]
 tools = ["pygame"]
+dev = ["pytest", "pygame"]
 
 [project.scripts]
 sid-sfx = "sid_sfx.cli:main"
