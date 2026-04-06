@@ -4,7 +4,11 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import shutil
+import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 from sid_sfx.schema import SfxPatch, Waveform, hz_to_sid_freq, sid_freq_to_hz
@@ -157,8 +161,67 @@ def _render_preset(name: str, patch: SfxPatch, output_dir: str, emulator: str, c
     return out_path
 
 
+def _play_wav(wav_path: str) -> None:
+    """Play a WAV file through speakers. Uses pygame if available, else aplay/paplay/afplay."""
+    try:
+        import pygame
+        import pygame.mixer
+        pygame.mixer.init()
+        sound = pygame.mixer.Sound(wav_path)
+        sound.play()
+        pygame.time.wait(int(sound.get_length() * 1000) + 100)
+        pygame.mixer.quit()
+        return
+    except ImportError:
+        pass
+
+    for player in ["paplay", "aplay", "afplay"]:
+        if shutil.which(player):
+            subprocess.run([player, wav_path], check=True)
+            return
+
+    print("Warning: no audio player found. Install pygame or ensure paplay/aplay/afplay is available.",
+          file=sys.stderr)
+
+
+def _play_via_vice(patch: SfxPatch) -> None:
+    """Play a patch through VICE live audio (not WAV recording)."""
+    import copy
+    from sid_sfx.vice_emulator import _build_prg, _find_vice
+
+    p = copy.deepcopy(patch)
+    _apply_game_filter(p)
+    prg_data = _build_prg(p)
+    vice_bin = _find_vice()
+
+    PAL_CLOCK = 985248
+    VICE_BOOT_S = 4.5
+    PLAY_DURATION_S = 3.0
+    total_cycles = int((VICE_BOOT_S + PLAY_DURATION_S) * PAL_CLOCK)
+
+    with tempfile.NamedTemporaryFile(suffix=".prg", delete=False) as f:
+        f.write(prg_data)
+        prg_path = f.name
+
+    try:
+        cmd = [
+            vice_bin, "-console",
+            "-sound",
+            "-sounddev", "pulse",
+            "-soundoutput", "1",
+            "-soundbufsize", "200",
+            "-soundvolume", "100",
+            "-sidmodel", "1",       # 8580
+            "-limitcycles", str(total_cycles),
+            "-autostart", prg_path,
+        ]
+        subprocess.run(cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, check=False)
+    finally:
+        os.unlink(prg_path)
+
+
 def cmd_play(args):
-    """Render built-in SFX presets to WAV for auditioning."""
+    """Render built-in SFX presets to WAV and play through speakers."""
     if args.list:
         print(f"Available presets ({len(PRESETS)}):")
         for name, patch in PRESETS.items():
@@ -166,14 +229,38 @@ def cmd_play(args):
             print(f"  {name:20s}  v{patch.voice} {patch.waveform.name:10s} {freq_hz:7.1f} Hz  {patch.description}")
         return
 
-    output_dir = args.output_dir or "patches"
+    save_wavs = args.output_dir is not None
     apply_filter = not args.no_game_filter
+    use_vice_live = args.emulator == "vice"
 
     if args.all:
-        print(f"Rendering all {len(PRESETS)} presets to {output_dir}/")
+        if save_wavs:
+            Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+            print(f"Playing all {len(PRESETS)} presets (saving to {args.output_dir}/)...")
+        else:
+            print(f"Playing all {len(PRESETS)} presets...")
+
+        tmpdir = None if save_wavs else tempfile.mkdtemp()
+        output_dir = args.output_dir if save_wavs else tmpdir
+
         for name, patch in PRESETS.items():
-            _render_preset(name, patch, output_dir, args.emulator, args.chip, apply_filter)
-        print(f"Done — {len(PRESETS)} WAV files in {output_dir}/")
+            if use_vice_live:
+                import copy
+                p = copy.deepcopy(patch)
+                if apply_filter:
+                    _apply_game_filter(p)
+                print(f"  {name:20s} (VICE live)...")
+                _play_via_vice(p)
+            else:
+                wav_path = _render_preset(name, patch, output_dir, args.emulator, args.chip, apply_filter)
+                _play_wav(wav_path)
+                if not save_wavs:
+                    os.unlink(wav_path)
+
+        if tmpdir:
+            os.rmdir(tmpdir)
+        if save_wavs:
+            print(f"Done — {len(PRESETS)} WAV files in {args.output_dir}/")
         return
 
     if not args.preset:
@@ -185,7 +272,33 @@ def cmd_play(args):
         print(f"Error: unknown preset '{name}'. Use --list to see available presets.", file=sys.stderr)
         sys.exit(1)
 
-    _render_preset(name, PRESETS[name], output_dir, args.emulator, args.chip, apply_filter)
+    patch = PRESETS[name]
+
+    if use_vice_live:
+        import copy
+        p = copy.deepcopy(patch)
+        if apply_filter:
+            _apply_game_filter(p)
+        print(f"  {name:20s} (VICE live)...")
+        _play_via_vice(p)
+        if save_wavs:
+            print("Note: VICE WAV recording is unreliable. Saved WAV may have dropped audio.")
+            Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+            _render_preset(name, patch, args.output_dir, args.emulator, args.chip, apply_filter)
+        return
+
+    if save_wavs:
+        Path(args.output_dir).mkdir(parents=True, exist_ok=True)
+        wav_path = _render_preset(name, patch, args.output_dir, args.emulator, args.chip, apply_filter)
+    else:
+        tmpdir = tempfile.mkdtemp()
+        wav_path = _render_preset(name, patch, tmpdir, args.emulator, args.chip, apply_filter)
+
+    _play_wav(wav_path)
+
+    if not save_wavs:
+        os.unlink(wav_path)
+        os.rmdir(tmpdir)
 
 
 def cmd_spectral_diff(args):
@@ -299,7 +412,7 @@ def main():
     p_play.add_argument(
         "-o", "--output-dir",
         default=None,
-        help="Output directory for WAV files (default: patches/)",
+        help="Output directory for WAV files (renders without saving if omitted)",
     )
     p_play.set_defaults(func=cmd_play)
 
