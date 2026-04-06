@@ -183,13 +183,24 @@ def _build_prg(patch: SfxPatch) -> bytes:
     else:
         sweep_frames = 0
 
-    if has_sweep or has_vibrato:
+    filter_cutoff_sweep = int(getattr(patch, "filter_cutoff_sweep", 0) or 0)
+    has_filter_sweep = has_filter and filter_cutoff_sweep > 0
+    filter_sweep_frames = (
+        patch.sweep_frames if patch.sweep_frames > 0 else patch.duration_frames
+    )
+
+    if has_sweep or has_vibrato or has_filter_sweep:
         # Complex path: per-frame frequency updates via a lookup table
-        # Pre-compute frequency for each frame and store as a table
+        # Pre-compute per-frame values and store as lookup tables.
         freq_table = _compute_freq_table(patch, total_frames, sweep_frames)
+        cutoff_table = (
+            _compute_filter_cutoff_table(patch, total_frames, filter_sweep_frames)
+            if has_filter_sweep
+            else None
+        )
         prg = _build_prg_with_freq_table(
             load_addr, basic_stub, patch, freq_table,
-            gate_off_frame, total_frames, has_filter,
+            gate_off_frame, total_frames, has_filter, cutoff_table,
         )
         return prg
     else:
@@ -280,6 +291,29 @@ def _compute_freq_table(
     return freqs
 
 
+def _compute_filter_cutoff_table(
+    patch: SfxPatch, total_frames: int, sweep_frames: int
+) -> list[int]:
+    """Compute per-frame 11-bit SID filter cutoff values."""
+    start_cutoff = int(getattr(patch, "filter_cutoff", 0x90))
+    target_cutoff = int(getattr(patch, "filter_cutoff_sweep", start_cutoff) or start_cutoff)
+    start_cutoff = max(0, min(255, start_cutoff))
+    target_cutoff = max(0, min(255, target_cutoff))
+
+    cutoffs = []
+    for frame in range(total_frames):
+        if sweep_frames > 0 and frame < sweep_frames:
+            frac = frame / max(1, sweep_frames - 1)
+            cutoff_8 = int(start_cutoff + (target_cutoff - start_cutoff) * frac)
+        elif sweep_frames > 0 and frame >= sweep_frames:
+            cutoff_8 = target_cutoff
+        else:
+            cutoff_8 = start_cutoff
+        cutoffs.append(max(0, min(2047, cutoff_8 << 3)))
+
+    return cutoffs
+
+
 def _build_prg_with_freq_table(
     load_addr: int,
     basic_stub: bytes,
@@ -288,6 +322,7 @@ def _build_prg_with_freq_table(
     gate_off_frame: int,
     total_frames: int,
     has_filter: bool,
+    filter_cutoff_table: list[int] | None = None,
 ) -> bytes:
     """Build a .prg with a frequency lookup table for per-frame updates.
 
@@ -371,6 +406,19 @@ def _build_prg_with_freq_table(
     ml.extend([0xBD, 0x00, 0x00])  # LDA $XXXX,X (placeholder)
     sta_abs(0xD400 + vb + REG_FREQ_HI)
 
+    cutoff_lo_lda_offset = None
+    cutoff_hi_lda_offset = None
+    if has_filter and filter_cutoff_table is not None:
+        # Read cutoff_lo from table: LDA table_lo,X; STA $D415
+        cutoff_lo_lda_offset = len(ml)
+        ml.extend([0xBD, 0x00, 0x00])  # LDA $XXXX,X (placeholder)
+        sta_abs(0xD400 + REG_FILT_LO)
+
+        # Read cutoff_hi from table: LDA table_hi,X; STA $D416
+        cutoff_hi_lda_offset = len(ml)
+        ml.extend([0xBD, 0x00, 0x00])  # LDA $XXXX,X (placeholder)
+        sta_abs(0xD400 + REG_FILT_HI)
+
     # INC frame counter
     ml.extend([0xEE, ZP_FRAME & 0xFF, (ZP_FRAME >> 8) & 0xFF])
 
@@ -405,11 +453,27 @@ def _build_prg_with_freq_table(
     freq_hi_data = bytes([(freq_table[i] >> 8) & 0xFF for i in range(n)])
     ml.extend(freq_hi_data)
 
+    cutoff_lo_addr = 0
+    cutoff_hi_addr = 0
+    if has_filter and filter_cutoff_table is not None:
+        cutoff_lo_addr = ml_addr + len(ml)
+        cutoff_lo_data = bytes([filter_cutoff_table[i] & 0x07 for i in range(n)])
+        ml.extend(cutoff_lo_data)
+
+        cutoff_hi_addr = ml_addr + len(ml)
+        cutoff_hi_data = bytes([(filter_cutoff_table[i] >> 3) & 0xFF for i in range(n)])
+        ml.extend(cutoff_hi_data)
+
     # Patch table addresses into the LDA abs,X instructions
     ml[freq_lo_lda_offset + 1] = table_lo_addr & 0xFF
     ml[freq_lo_lda_offset + 2] = (table_lo_addr >> 8) & 0xFF
     ml[freq_hi_lda_offset + 1] = table_hi_addr & 0xFF
     ml[freq_hi_lda_offset + 2] = (table_hi_addr >> 8) & 0xFF
+    if cutoff_lo_lda_offset is not None and cutoff_hi_lda_offset is not None:
+        ml[cutoff_lo_lda_offset + 1] = cutoff_lo_addr & 0xFF
+        ml[cutoff_lo_lda_offset + 2] = (cutoff_lo_addr >> 8) & 0xFF
+        ml[cutoff_hi_lda_offset + 1] = cutoff_hi_addr & 0xFF
+        ml[cutoff_hi_lda_offset + 2] = (cutoff_hi_addr >> 8) & 0xFF
 
     return struct.pack('<H', load_addr) + basic_stub + bytes(ml)
 
