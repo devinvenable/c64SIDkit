@@ -18,7 +18,7 @@ def estimate_duration_ms(patch: SfxPatch) -> float:
     decay_ms = DECAY_RELEASE_MS[patch.decay]
     release_ms = DECAY_RELEASE_MS[patch.release]
     # Use frame duration as minimum, envelope as guide
-    frame_ms = patch.duration_frames * (1000.0 / 60.0)
+    frame_ms = patch.duration_frames * (1000.0 / 50.0)  # C64 PAL: 50fps
     envelope_ms = attack_ms + decay_ms + 50.0 + release_ms
     return max(frame_ms, min(envelope_ms, 5000.0))
 

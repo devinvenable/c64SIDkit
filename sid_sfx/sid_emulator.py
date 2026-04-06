@@ -143,7 +143,6 @@ class SidVoiceEmulator:
             return np.where(phase < duty, 1.0, -1.0).astype(np.float64)
         elif waveform == Waveform.NOISE:
             # For swept noise, use sample-and-hold with average freq
-            avg_freq = np.mean(phase)  # rough approximation
             n_samples = len(phase)
             samples_per_cycle = max(1, int(1.0 / max(0.001, np.mean(np.diff(phase[phase < 0.99])))))
             noise_len = (n_samples // samples_per_cycle) + 2

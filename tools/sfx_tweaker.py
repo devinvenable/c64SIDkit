@@ -571,7 +571,7 @@ def main():
             f"AD byte:   ${patch.ad_byte:02X}   SR byte: ${patch.sr_byte:02X}",
             "",
             f"Pulse W:   ${patch.pw_hi:02X}",
-            f"Duration:  {patch.duration_frames} frames ({patch.duration_frames/60*1000:.0f}ms)",
+            f"Duration:  {patch.duration_frames} frames ({patch.duration_frames/50*1000:.0f}ms)",
             "",
         ]
 
