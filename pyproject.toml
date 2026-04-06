@@ -1,0 +1,23 @@
+[build-system]
+requires = ["setuptools>=68.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "c64SIDkit"
+version = "0.1.0"
+description = "SID chip sound effects toolkit for Commodore 64 game development"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = [
+    "numpy",
+    "scipy",
+]
+
+[project.optional-dependencies]
+tools = ["pygame"]
+
+[project.scripts]
+sid-sfx = "sid_sfx.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["sid_sfx*", "tools*"]
