@@ -9,6 +9,7 @@ import pytest
 from sid_sfx.schema import SfxPatch, Waveform
 from sid_sfx.vice_emulator import (
     _build_prg,
+    _compute_filter_cutoff_table,
     _compute_freq_table,
     render_patch_vice,
     VOICE_BASE,
@@ -118,6 +119,39 @@ def test_compute_freq_table_sweep():
     assert abs(freqs[9] - patch.sweep_target) < 2
     # After sweep, should hold at target
     assert freqs[15] == patch.sweep_target
+
+
+def test_compute_filter_cutoff_table_sweep():
+    """Filter cutoff sweep should interpolate and hold at target."""
+    patch = SfxPatch(
+        name="test", filter_mode="lowpass", filter_cutoff=0x20, filter_cutoff_sweep=0xA0
+    )
+    cutoffs = _compute_filter_cutoff_table(patch, total_frames=20, sweep_frames=10)
+    assert cutoffs[0] == (0x20 << 3)
+    assert abs(cutoffs[9] - (0xA0 << 3)) < 8
+    assert cutoffs[15] == (0xA0 << 3)
+
+
+def test_build_prg_with_filter_cutoff_sweep_uses_table_path():
+    """Filter cutoff sweep should write cutoff regs from per-frame tables."""
+    patch = SfxPatch(
+        name="test",
+        waveform=Waveform.SAWTOOTH,
+        freq_hi=0x10,
+        freq_lo=0x00,
+        filter_mode="lowpass",
+        filter_cutoff=0x20,
+        filter_cutoff_sweep=0xA0,
+        duration_frames=16,
+    )
+    prg = _build_prg(patch)
+    data = bytes(prg)
+
+    # One init write + one per-frame table write instruction for each cutoff register.
+    assert data.count(b"\x8d\x15\xd4") == 2
+    assert data.count(b"\x8d\x16\xd4") == 2
+    # Table path uses LDA abs,X opcodes for lookup.
+    assert 0xBD in data
 
 
 # --- Integration tests (require VICE) ---
