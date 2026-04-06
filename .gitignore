@@ -2,3 +2,16 @@ __pycache__/
 *.pyc
 *.wav
 .pytest_cache/
+.agent-tasks.db
+*.swp
+*.deb
+canon/
+logs/
+worktrees/
+compare_output
+patches/staging/
+icon.png
+SFX_CHANGES.md
+sfx_mapping.md
+play_patches.sh
+sfx_studio.sh
