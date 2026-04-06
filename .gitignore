@@ -15,3 +15,7 @@ SFX_CHANGES.md
 sfx_mapping.md
 play_patches.sh
 sfx_studio.sh
+demo/*.cast
+demo/*.sh
+demo/*.wav
+demo/*.asm

@@ -2,6 +2,8 @@
 
 SID chip sound effects toolkit for Commodore 64 game development.
 
+![demo](demo/demo.gif)
+
 ## Features
 
 - Python SID emulation with multiple backends: `sid_emulator.py`, `resid_emulator.py`, `vice_emulator.py`
