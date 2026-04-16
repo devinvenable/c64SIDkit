@@ -402,14 +402,27 @@ def patches_to_game_tables(
 
     lines.append("")
     lines.append("; weighted random: index by (star_rand AND #7) -> blaster ID")
-    weights = list(range(len(all_data)))
-    # Default weight distribution matching game convention
-    if len(all_data) >= 7:
-        weight_table = [0, 5, 6, 1, 1, 2, 3, 4]
+    # Weight distribution for blaster variants
+    # Try to include all variants with reasonable distribution
+    if len(all_data) <= 8:
+        # Simple round-robin for small sets
+        weight_table = [i % len(all_data) for i in range(8)]
+    elif len(all_data) == 9:
+        # 9 variants: include all with one duplicate
+        weight_table = [0, 1, 2, 3, 4, 5, 6, 7, 8][:8]  # exclude last one
+    elif len(all_data) == 10:
+        # 10 variants: include original + octdown for each weapon type
+        # xwing: original (0) + octdown (6)
+        # heavy_repeater: filtered (1) + octdown (7)
+        # turbolaser: filtered (2) + octdown (9)
+        # tie_cannon: filtered (3)
+        # ion_cannon: filtered (4)
+        # Excludes: xwing_blaster_filtered (5), ion_cannon_octdown (8)
+        weight_table = [0, 6, 1, 7, 2, 9, 3, 4]
     else:
-        weight_table = [0] * 8
-        for i in range(min(8, len(all_data))):
-            weight_table[i] = i % len(all_data)
+        # Fallback for >10 variants
+        weight_table = [i % len(all_data) for i in range(8)]
+    
     hex_vals = ", ".join(str(w) for w in weight_table)
     lines.append(f"fire_weight_table:")
     lines.append(f"    .byte {hex_vals}")
