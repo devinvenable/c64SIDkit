@@ -10,7 +10,10 @@ python -m sid_sfx.cli game-export \
   patches/tie_cannon_filtered.json \
   patches/ion_cannon_filtered.json \
   patches/xwing_blaster_filtered.json \
-  patches/xwing_blaster_octdown.json
+  patches/xwing_blaster_octdown.json \
+  patches/staging/heavy_repeater_octdown.json \
+  patches/staging/ion_cannon_octdown.json \
+  patches/staging/turbolaser_octdown.json
 ```
 
 This outputs the exact `sfx_blaster_data`, `sfx_blaster_sweep`, and `fire_weight_table`
@@ -32,6 +35,9 @@ in game format (filter_cutoff as byte 0, 4-byte sweep entries). Paste directly i
 | 4 | ion_cannon_filtered | 596Hz | Pulse | PW=$14 |
 | 5 | xwing_blaster_filtered | 573Hz | Sawtooth | Filtered variant |
 | 6 | xwing_blaster_octdown | 287Hz | Sawtooth | Half original freq |
+| 7 | heavy_repeater_octdown | 239Hz | Sawtooth | Half heavy_repeater freq |
+| 8 | ion_cannon_octdown | 298Hz | Pulse | Half ion_cannon freq, PW=$14 |
+| 9 | turbolaser_octdown | 397Hz | Sawtooth | Half turbolaser freq |
 
 All blasters go through game band-pass filter (res=$F, cutoff=$90, line 8303-8309).
 Preview tool auto-applies this filter on voice 1 patches.
@@ -58,14 +64,24 @@ Low sustain (4), flat attack — quiet background drones.
 
 These passed A/B testing but have no game routine assigned:
 
-| Patch | Purpose | Status |
-|-------|---------|--------|
-| heavy_repeater_octdown | 239Hz variant | Could add as blaster index 7 |
-| ion_cannon_octdown | 298Hz variant | Could add as blaster index 8 |
-| turbolaser_octdown | 397Hz variant | Could add as blaster index 9 |
-| shield_off_v2 | Shield deactivation | Needs play_shield_off_sfx |
-| shield_off_v3 | Shield deactivation (deeper) | Alternative to v2 |
-| spread_fire_v2 | Spread weapon fire | Could hook into play_fire_sfx when spread active |
+| Patch | Purpose | Integration Path | Notes |
+|-------|---------|------------------|-------|
+| shield_off_v2 | Shield deactivation | Hook into `play_shield_off_sfx` routine (voice 3) | Triangle waveform, 35→8 Hz exponential sweep, 18 frames |
+| shield_off_v3 | Shield deactivation (deeper) | Alternative to v2, hook into `play_shield_off_sfx` | Triangle waveform, 20→3 Hz exponential sweep, 24 frames |
+| spread_fire_v2 | Spread weapon fire | Hook into `play_fire_sfx` when spread weapon active (voice 3) | Pulse waveform, 8 Hz, 6 frames, rapid machine-gun character |
+
+## Game-Event Patches (Canon K59)
+
+These game-event patches are approved but need JSON patches created and integration paths defined:
+
+| Patch | Purpose | Integration Path | Status |
+|-------|---------|------------------|--------|
+| heavy_repeater | Blaster variant | Add to game-export command as additional blaster index | Needs JSON patch |
+| spread_shot | Spread weapon fire | Hook into play_fire_sfx when spread active | Needs JSON patch |
+| boss_intro | Boss introduction | Hook into boss_intro routine | Needs JSON patch |
+| boss_defeat | Boss defeated | Hook into boss_defeat routine | Needs JSON patch |
+| level_clear | Level completed | Hook into level_clear routine | Needs JSON patch |
+| game_over | Game over | Hook into game_over routine | Needs JSON patch |
 
 ---
 
