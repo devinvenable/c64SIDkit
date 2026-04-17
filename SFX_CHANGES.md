@@ -94,7 +94,7 @@ Integrated into `dankarmada.asm` (SFX preset table + runtime hooks):
 ```asm
 ; shield_off_v2 -> SFX_SHIELD_OFF
 .byte $03, $11, $23, $00, $06, $86, $00  ; data
-.byte $08, $00, $10, $03, $00, $00       ; sweep (exp 35->8Hz)
+.byte $08, $00, $10, $00, $00, $00       ; sweep 35->8Hz, one-shot
 ; duration: 18, loop: 0, filter: off
 
 ; spread_fire_v2 -> SFX_SPREAD_FIRE
