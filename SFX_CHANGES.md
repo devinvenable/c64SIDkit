@@ -81,13 +81,27 @@ fire_weight_table:
 
 ## Approved But Not Yet Integrated
 
-These patches exist in `patches/staging/` and have passed A/B testing but need game routine integration:
+This patch exists in `patches/staging/` and has passed A/B testing but still needs game routine integration:
 
 | Patch | Purpose | Integration Path | Notes |
 |-------|---------|------------------|-------|
-| shield_off_v2 | Shield deactivation | Hook into `play_shield_off_sfx` routine (voice 3) | Triangle waveform, 35→8 Hz exponential sweep, 18 frames |
 | shield_off_v3 | Shield deactivation (deeper) | Alternative to v2, hook into `play_shield_off_sfx` | Triangle waveform, 20→3 Hz exponential sweep, 24 frames |
-| spread_fire_v2 | Spread weapon fire | Hook into `play_fire_sfx` when spread weapon active (voice 3) | Pulse waveform, 8 Hz, 6 frames, rapid machine-gun character |
+
+## Newly Integrated (Task 121)
+
+Integrated into `dankarmada.asm` (SFX preset table + runtime hooks):
+
+```asm
+; shield_off_v2 -> SFX_SHIELD_OFF
+.byte $03, $11, $23, $00, $06, $86, $00  ; data
+.byte $08, $00, $10, $00, $00, $00       ; sweep 35->8Hz, one-shot
+; duration: 18, loop: 0, filter: off
+
+; spread_fire_v2 -> SFX_SPREAD_FIRE
+.byte $03, $41, $08, $00, $03, $42, $01  ; data
+.byte $00, $00, $00, $00, $00, $00       ; sweep (none)
+; duration: 6, loop: 0, filter: off
+```
 
 ## Game-Event Patches (Canon K59)
 
